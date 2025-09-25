@@ -229,16 +229,16 @@ db.serialize(() => {
         if (result.count === 0) {
           const defaultCategories = [
             { name: "Thông báo lãi suất", icon: "💰" },
-            { name: "Thông báo tỷ giá", icon: "💱" },
             { name: "Thông báo nội bộ", icon: "📢" },
+            { name: "Thông báo tỷ giá", icon: "💱" },
             { name: "Thông báo các khoản vay", icon: "🏦" },
+            { name: "Tổ chức nhân sự", icon: "👥" },
+            { name: "Lịch công tác của BGĐ", icon: "📅" },
             { name: "Quyết định", icon: "⚖️" },
             { name: "Biếu phí", icon: "💳" },
-            { name: "Lịch công tác", icon: "📅" },
             { name: "Cơ chế động lực", icon: "🎯" },
             { name: "Hoạt động chi nhánh", icon: "🏢" },
             { name: "Vinh danh", icon: "🏆" },
-            { name: "Tổ chức nhân sự", icon: "👥" },
           ];
 
           console.log("Thêm categories mặc định...");

@@ -201,7 +201,7 @@ body {
 
 /* Login Page Styles */
 .login-body {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: var(--brand-color-base);
   min-height: 100vh;
   display: flex;
   align-items: center;
