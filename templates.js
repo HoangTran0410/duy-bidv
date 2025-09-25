@@ -227,7 +227,7 @@ function generateLoginPage(error = "") {
                 </label>
             </div>
 
-            <button type="submit" class="login-btn">Đăng nhập</button>
+            <button type="submit" class="login-btn">🔑 Đăng nhập</button>
         </form>
 
         <div class="login-footer">
@@ -296,7 +296,7 @@ function generateNavigation(session, currentPage = "", categories = []) {
             <span class="user-name">${session.userName}</span>
           </span>
           <form action="/logout" method="POST" style="display: inline;">
-            <button type="submit" class="logout-btn">Đăng xuất</button>
+            <button type="submit" class="logout-btn">🚪 Đăng xuất</button>
           </form>
         </div>
       </div>
@@ -430,7 +430,7 @@ function generateNavigation(session, currentPage = "", categories = []) {
 
           <div class="mobile-drawer-footer">
             <form action="/logout" method="POST" class="mobile-logout-form">
-              <button type="submit" class="mobile-logout-btn">
+              <button type="submit" class="mobile-logout-btn">🚪
                 <span class="mobile-nav-icon">🚪</span>
                 Đăng xuất
               </button>
@@ -709,7 +709,7 @@ function generateHomePage(
                 </div>
 
                 <div style="margin-top: 20px; text-align: center;">
-                    <a href="/upload" style="background: var(--bidv-green); color: var(--text-white); padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">+ Đăng tài liệu mới</a>
+                    <a href="/upload" style="background: var(--bidv-green); color: var(--text-white); padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">📝 Đăng tài liệu mới</a>
                 </div>
             </div>
 
@@ -782,14 +782,15 @@ function generateUploadPage(session, categories = []) {
                 </div>
 
                 <div class="form-group">
-                    <label for="file">File đính kèm</label>
-                    <input type="file" id="file" name="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mp3,.wav,.webm,.ogg,.zip,.rar">
-                    <small>Hỗ trợ: PDF, DOC, DOCX, Excel (XLS/XLSX), TXT, hình ảnh, video, audio, file nén (tối đa 500MB)</small>
+                    <label for="files">Files đính kèm (tối đa 10 files)</label>
+                    <input type="file" id="files" name="files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mp3,.wav,.webm,.ogg,.zip,.rar,text/plain,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                    <small>Hỗ trợ: PDF, DOC, DOCX, Excel (XLS/XLSX), TXT, hình ảnh, video, audio, file nén (mỗi file tối đa 500MB)</small>
+                    <div id="file-list" class="file-list-preview"></div>
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Đăng tài liệu</button>
-                    <a href="/" class="btn btn-secondary">Hủy</a>
+                    <button type="submit" class="btn btn-primary">📤 Đăng tài liệu</button>
+                    <a href="/" class="btn btn-secondary">❌ Hủy</a>
                 </div>
             </form>
         </main>
@@ -798,6 +799,49 @@ function generateUploadPage(session, categories = []) {
     ${generateFooter()}
 
     ${generateMarkdownEditorScript("upload-form", "bidv-upload-content")}
+
+    <script>
+        document.getElementById('files').addEventListener('change', function(e) {
+            const fileList = document.getElementById('file-list');
+            const files = Array.from(e.target.files);
+
+            if (files.length > 10) {
+                alert('Chỉ được chọn tối đa 10 files!');
+                e.target.value = '';
+                fileList.innerHTML = '';
+                return;
+            }
+
+            fileList.innerHTML = '';
+
+            files.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-preview-item';
+                fileItem.innerHTML = \`
+                    <span class="file-icon">📎</span>
+                    <span class="file-name">\${file.name}</span>
+                    <span class="file-size">(\${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                    <button type="button" onclick="removeFile(\${index})" class="btn-remove-file">✕</button>
+                \`;
+                fileList.appendChild(fileItem);
+            });
+        });
+
+        function removeFile(index) {
+            const input = document.getElementById('files');
+            const dt = new DataTransfer();
+            const files = Array.from(input.files);
+
+            files.forEach((file, i) => {
+                if (i !== index) {
+                    dt.items.add(file);
+                }
+            });
+
+            input.files = dt.files;
+            input.dispatchEvent(new Event('change'));
+        }
+    </script>
 </body>
 </html>
   `;
@@ -822,7 +866,7 @@ function generateAdminPage(announcement, session, categories = []) {
             <div class="page-header">
                 <h2>Quản trị hệ thống</h2>
                 <div class="page-actions">
-                    <a href="/admin/deleted" class="btn btn-info">Quản lý file đã xóa</a>
+                    <a href="/admin/deleted" class="btn btn-info">🗑️ Quản lý file đã xóa</a>
                 </div>
             </div>
 
@@ -838,7 +882,7 @@ function generateAdminPage(announcement, session, categories = []) {
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Lưu thông báo</button>
+                        <button type="submit" class="btn btn-primary">💾 Lưu thông báo</button>
                     </div>
                 </form>
             </div>
@@ -880,7 +924,7 @@ function generateUsersPage(users, session, categories = []) {
             <div class="page-header">
                 <h2>Quản lý người dùng</h2>
                 <div class="page-actions">
-                    <button onclick="showAddUserForm()" class="btn btn-primary">+ Thêm người dùng</button>
+                    <button onclick="showAddUserForm()" class="btn btn-primary">➕ Thêm người dùng</button>
                 </div>
             </div>
 
@@ -918,8 +962,8 @@ function generateUsersPage(users, session, categories = []) {
                         </label>
                     </div>
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Tạo người dùng</button>
-                        <button type="button" onclick="hideAddUserForm()" class="btn btn-secondary">Hủy</button>
+                        <button type="submit" class="btn btn-primary">✅ Tạo người dùng</button>
+                        <button type="button" onclick="hideAddUserForm()" class="btn btn-secondary">❌ Hủy</button>
                     </div>
                 </form>
             </div>
@@ -972,8 +1016,8 @@ function generateUsersPage(users, session, categories = []) {
                                     }">
                                         ${
                                           user.status === "active"
-                                            ? "Khóa"
-                                            : "Mở khóa"
+                                            ? "🔒 Khóa"
+                                            : "🔓 Mở khóa"
                                         }
                                     </button>
                                 </form>
@@ -1024,12 +1068,34 @@ function generateEditPage(post, session, categories = []) {
                 <h2>Chỉnh sửa tài liệu</h2>
             </div>
 
-            <form action="/edit/${post.id}" method="POST" class="edit-form">
-                <div class="form-group">
-                    <label for="title">Tiêu đề tài liệu *</label>
-                    <input type="text" id="title" name="title" value="${
-                      post.title
-                    }" required>
+            <form action="/edit/${
+              post.id
+            }" method="POST" enctype="multipart/form-data" class="edit-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="title">Tiêu đề tài liệu *</label>
+                        <input type="text" id="title" name="title" value="${
+                          post.title
+                        }" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="category_id">Danh mục *</label>
+                        <select id="category_id" name="category_id" required>
+                            <option value="">Chọn danh mục...</option>
+                            ${categories
+                              .map(
+                                (category) => `
+                                <option value="${category.id}" ${
+                                  post.category_id == category.id
+                                    ? "selected"
+                                    : ""
+                                }>${category.icon} ${category.name}</option>
+                            `
+                              )
+                              .join("")}
+                        </select>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -1040,27 +1106,62 @@ function generateEditPage(post, session, categories = []) {
                 </div>
 
                 ${
-                  post.file_name
+                  post.files && post.files.length > 0
                     ? `
-                <div class="current-file">
-                    <h4>File hiện tại:</h4>
-                    <div class="file-info">
-                        <span class="file-icon">📎</span>
-                        <span class="file-name">${post.file_name}</span>
-                        <a href="/download/${post.id}" class="btn btn-sm">Tải về</a>
+                <div class="current-files">
+                    <h4>Files hiện tại:</h4>
+                    <div id="current-files-list">
+                        ${
+                          post.files && post.files.length > 0
+                            ? post.files
+                                .map(
+                                  (file) => `
+                        <div class="file-info" data-file-id="${file.id}">
+                            <span class="file-icon">📎</span>
+                            <span class="file-name">${file.file_name}</span>
+                            <span class="file-size">(${(
+                              file.file_size /
+                              1024 /
+                              1024
+                            ).toFixed(2)} MB)</span>
+                            <a href="/download/file/${
+                              file.id
+                            }" class="btn btn-sm">⬇️ Tải về</a>
+                            <button type="button" onclick="removeCurrentFile(${
+                              file.id
+                            })" class="btn btn-sm btn-danger">🗑️ Xóa</button>
+                            <input type="hidden" name="remove_files[]" id="remove_file_${
+                              file.id
+                            }" value="">
+                        </div>
+                        `
+                                )
+                                .join("")
+                            : `
+                        <div class="no-files">
+                            <p>Chưa có file nào được đính kèm.</p>
+                        </div>
+                        `
+                        }
                     </div>
-                    <p><small>Lưu ý: Không thể thay đổi file đính kèm khi chỉnh sửa</small></p>
                 </div>
                 `
                     : ""
                 }
 
+                <div class="form-group">
+                    <label for="new_files">Thêm files mới (tối đa 10 files)</label>
+                    <input type="file" id="new_files" name="new_files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mp3,.wav,.webm,.ogg,.zip,.rar,text/plain,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                    <small>Hỗ trợ: PDF, DOC, DOCX, Excel (XLS/XLSX), TXT, hình ảnh, video, audio, file nén (mỗi file tối đa 500MB)</small>
+                    <div id="new-file-list" class="file-list-preview"></div>
+                </div>
+
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
-                    <a href="/" class="btn btn-secondary">Hủy</a>
+                    <button type="submit" class="btn btn-primary">💾 Lưu thay đổi</button>
+                    <a href="/" class="btn btn-secondary">❌ Hủy</a>
                     <a href="/history/${
                       post.id
-                    }" class="btn btn-info">Xem lịch sử</a>
+                    }" class="btn btn-info">📖 Xem lịch sử</a>
                 </div>
             </form>
         </main>
@@ -1069,6 +1170,60 @@ function generateEditPage(post, session, categories = []) {
     ${generateFooter()}
 
     ${generateMarkdownEditorScript("edit-form", `bidv-edit-content-${post.id}`)}
+
+    <script>
+        // Handle new file selection
+        document.getElementById('new_files').addEventListener('change', function(e) {
+            const fileList = document.getElementById('new-file-list');
+            const files = Array.from(e.target.files);
+
+            if (files.length > 10) {
+                alert('Chỉ được chọn tối đa 10 files!');
+                e.target.value = '';
+                fileList.innerHTML = '';
+                return;
+            }
+
+            fileList.innerHTML = '';
+
+            files.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-preview-item';
+                fileItem.innerHTML = \`
+                    <span class="file-icon">📎</span>
+                    <span class="file-name">\${file.name}</span>
+                    <span class="file-size">(\${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                    <button type="button" onclick="removeNewFile(\${index})" class="btn-remove-file">✕</button>
+                \`;
+                fileList.appendChild(fileItem);
+            });
+        });
+
+        function removeNewFile(index) {
+            const input = document.getElementById('new_files');
+            const dt = new DataTransfer();
+            const files = Array.from(input.files);
+
+            files.forEach((file, i) => {
+                if (i !== index) {
+                    dt.items.add(file);
+                }
+            });
+
+            input.files = dt.files;
+            input.dispatchEvent(new Event('change'));
+        }
+
+        // Handle current file removal
+        function removeCurrentFile(fileId) {
+            if (confirm('Bạn có chắc muốn xóa file này?')) {
+                document.getElementById('remove_file_' + fileId).value = fileId;
+                const fileDiv = document.querySelector('[data-file-id="' + fileId + '"]');
+                fileDiv.style.opacity = '0.5';
+                fileDiv.innerHTML += '<p class="text-info">File sẽ được xóa khi lưu thay đổi.</p>';
+            }
+        }
+    </script>
 </body>
 </html>
   `;
@@ -1093,7 +1248,9 @@ function generateHistoryPage(post, history, session, categories = []) {
             <div class="page-header">
                 <h2>Lịch sử chỉnh sửa: ${post.title}</h2>
                 <div class="page-actions">
-                    <a href="/" class="btn btn-secondary">Quay lại</a>
+                    <a href="/post/${
+                      post.id
+                    }" class="btn btn-secondary">↩️ Quay lại</a>
                 </div>
             </div>
 
@@ -1198,11 +1355,11 @@ function generateNoPermissionPage(
                 </div>
 
                 <div class="no-permission-actions">
-                    <a href="/" class="btn btn-primary">Quay về trang chủ</a>
+                    <a href="/" class="btn btn-primary">🏠 Quay về trang chủ</a>
                     ${
                       session.userRole === "admin"
                         ? `
-                        <a href="/users" class="btn btn-secondary">Quản lý người dùng</a>
+                        <a href="/users" class="btn btn-secondary">👥 Quản lý người dùng</a>
                     `
                         : `
                         <p class="contact-admin">Vui lòng liên hệ quản trị viên để được cấp quyền đăng bài.</p>
@@ -1222,18 +1379,18 @@ function generateNoPermissionPage(
 // Post Detail View Template
 function generatePostDetailPage(post, session, categories = []) {
   // Determine file preview based on file extension
-  const getFilePreview = (fileName, postId) => {
+  const getFilePreview = (fileName, postId, fileId) => {
     if (!fileName) return "";
 
     const ext = fileName.toLowerCase().split(".").pop();
-    const fileUrl = `/download/${postId}`;
+    const fileUrl = fileId ? `/download/file/${fileId}` : `/download/${postId}`;
 
     switch (ext) {
       case "pdf":
         return `
           <div class="file-preview">
             <iframe src="${fileUrl}" width="100%" height="600px" frameborder="0">
-              <p>Trình duyệt không hỗ trợ xem PDF. <a href="${fileUrl}">Tải về</a></p>
+              <p>Trình duyệt không hỗ trợ xem PDF. <a href="${fileUrl}">⬇️ Tải về</a></p>
             </iframe>
           </div>
         `;
@@ -1256,7 +1413,7 @@ function generatePostDetailPage(post, session, categories = []) {
           <div class="file-preview">
             <video controls width="100%" style="border-radius: 8px; max-height: 600px; max-width: 400px">
               <source src="${fileUrl}" type="video/${ext}">
-              Trình duyệt không hỗ trợ video này. <a href="${fileUrl}">Tải về</a>
+              Trình duyệt không hỗ trợ video này. <a href="${fileUrl}">⬇️ Tải về</a>
             </video>
           </div>
         `;
@@ -1268,7 +1425,7 @@ function generatePostDetailPage(post, session, categories = []) {
           <div class="file-preview">
             <audio controls style="width: 100%;">
               <source src="${fileUrl}" type="audio/${ext}">
-              Trình duyệt không hỗ trợ audio này. <a href="${fileUrl}">Tải về</a>
+              Trình duyệt không hỗ trợ audio này. <a href="${fileUrl}">⬇️ Tải về</a>
             </audio>
           </div>
         `;
@@ -1282,7 +1439,7 @@ function generatePostDetailPage(post, session, categories = []) {
                  <span class="file-icon">📊</span>
                  <span class="file-name">${fileName}</span>
                  <div class="preview-actions">
-                   <a href="${fileUrl}?download=true" class="btn btn-sm btn-download">Tải về</a>
+                   <a href="${fileUrl}?download=true" class="btn btn-sm btn-download">⬇️ Tải về</a>
                  </div>
                </div>
                <div id="excel-container-${postId}" class="excel-container">
@@ -1314,7 +1471,7 @@ function generatePostDetailPage(post, session, categories = []) {
                    })
                    .catch(error => {
                      document.getElementById('excel-container-${postId}').innerHTML =
-                       '<div class="error-message">Không thể tải file Excel. <a href="${fileUrl}?download=true">Tải về</a></div>';
+                       '<div class="error-message">Không thể tải file Excel. <a href="${fileUrl}?download=true">⬇️ Tải về</a></div>';
                    });
 
                  window.showSheet_${postId} = function(sheetName, button) {
@@ -1337,7 +1494,7 @@ function generatePostDetailPage(post, session, categories = []) {
                  <span class="file-icon">📄</span>
                  <span class="file-name">${fileName}</span>
                  <div class="preview-actions">
-                   <a href="${fileUrl}?download=true" class="btn btn-sm btn-download">Tải về</a>
+                   <a href="${fileUrl}?download=true" class="btn btn-sm btn-download">⬇️ Tải về</a>
                  </div>
                </div>
                <div id="word-container-${postId}" class="word-container">
@@ -1352,7 +1509,7 @@ function generatePostDetailPage(post, session, categories = []) {
                    })
                    .catch(error => {
                      document.getElementById('word-container-${postId}').innerHTML =
-                       '<div class="error-message">Không thể tải file Word. <a href="${fileUrl}?download=true">Tải về</a></div>';
+                       '<div class="error-message">Không thể tải file Word. <a href="${fileUrl}?download=true">⬇️ Tải về</a></div>';
                    });
                </script>
              </div>
@@ -1368,7 +1525,7 @@ function generatePostDetailPage(post, session, categories = []) {
                 <div class="file-name">${fileName}</div>
                 <div class="file-note">Loại file này không hỗ trợ xem trực tiếp</div>
               </div>
-              <a href="${fileUrl}?download=true" class="btn btn-primary">Tải về để xem</a>
+              <a href="${fileUrl}?download=true" class="btn btn-primary">⬇️ Tải về để xem</a>
             </div>
           </div>
         `;
@@ -1436,19 +1593,29 @@ function generatePostDetailPage(post, session, categories = []) {
                 }
 
                 ${
-                  post.file_name
+                  post.files && post.files.length > 0
                     ? `
                 <div class="post-file-section">
-                    <h3>File đính kèm:</h3>
+                    <h3>Files đính kèm:</h3>
+                    ${post.files
+                      .map(
+                        (file, index) => `
                     <div class="file-info-header">
                         <span class="file-icon">📎</span>
-                        <span class="file-name">${post.file_name}</span>
-                        <a href="/download/${
-                          post.id
-                        }?download=true" class="btn btn-sm btn-download">Tải về</a>
+                        <span class="file-name">${file.file_name}</span>
+                        <span class="file-size">(${(
+                          file.file_size /
+                          1024 /
+                          1024
+                        ).toFixed(2)} MB)</span>
+                        <a href="/download/file/${
+                          file.id
+                        }?download=true" class="btn btn-sm btn-download">⬇️ Tải về</a>
                     </div>
-
-                    ${getFilePreview(post.file_name, post.id)}
+                    ${getFilePreview(file.file_name, post.id, file.id)}
+                    `
+                      )
+                      .join("")}
                 </div>
                 `
                     : ""
@@ -1458,18 +1625,18 @@ function generatePostDetailPage(post, session, categories = []) {
                     ${
                       session.userRole === "admin" ||
                       post.user_id === session.userId
-                        ? `<a href="/edit/${post.id}" class="btn btn-secondary">Chỉnh sửa</a>`
+                        ? `<a href="/edit/${post.id}" class="btn btn-secondary">✏️ Chỉnh sửa</a>`
                         : ""
                     }
                     <a href="/history/${
                       post.id
-                    }" class="btn btn-info">Lịch sử</a>
+                    }" class="btn btn-info">📖 Lịch sử</a>
                     ${
                       session.userRole === "admin"
-                        ? `<button onclick="deletePost(${post.id})" class="btn btn-danger">Xóa</button>`
+                        ? `<button onclick="deletePost(${post.id})" class="btn btn-danger">🗑️ Xóa</button>`
                         : ""
                     }
-                    <a href="/" class="btn btn-primary">Quay lại</a>
+                    <a href="/" class="btn btn-primary">↩️ Quay lại</a>
                 </div>
             </div>
         </main>

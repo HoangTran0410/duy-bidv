@@ -1,1 +1,1 @@
-Các file bị xoá sẽ vào đây
+Các file bị xóa sẽ ở đây

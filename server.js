@@ -22,6 +22,15 @@ const {
   generatePostDetailPage,
 } = require("./templates");
 
+// Helper function to load files for a post
+function loadPostFiles(postId, callback) {
+  db.all(
+    "SELECT * FROM post_files WHERE post_id = ? ORDER BY file_order, created_at",
+    [postId],
+    callback
+  );
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -95,22 +104,54 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     // Chấp nhận các loại file phổ biến
-    const allowedTypes =
-      /pdf|doc|docx|xls|xlsx|txt|jpg|jpeg|png|gif|zip|rar|mp4|mp3|wav|webm|ogg|webp/;
+    const allowedExtensions =
+      /\.(pdf|doc|docx|xls|xlsx|txt|jpg|jpeg|png|gif|zip|rar|mp4|mp3|wav|webm|ogg|webp)$/i;
+
+    const allowedMimeTypes = [
+      // Documents
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain",
+      // Images
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      // Videos
+      "video/mp4",
+      "video/webm",
+      // Audio
+      "audio/mpeg",
+      "audio/wav",
+      "audio/ogg",
+      // Archives
+      "application/zip",
+      "application/x-rar-compressed",
+      "application/x-zip-compressed",
+    ];
 
     // Fix UTF-8 encoding for file extension check
     const originalName = Buffer.from(file.originalname, "latin1").toString(
       "utf8"
     );
-    const extname = allowedTypes.test(path.extname(originalName).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
 
-    if (mimetype && extname) {
+    const hasValidExtension = allowedExtensions.test(originalName);
+    const hasValidMimeType = allowedMimeTypes.includes(file.mimetype);
+
+    console.log(
+      `File validation - Name: ${originalName}, MimeType: ${file.mimetype}, ValidExt: ${hasValidExtension}, ValidMime: ${hasValidMimeType}`
+    );
+
+    if (hasValidExtension && hasValidMimeType) {
       return cb(null, true);
     } else {
       cb(
         new Error(
-          "Chỉ chấp nhận file PDF, DOC, DOCX, Excel (XLS/XLSX), TXT, hình ảnh, video, audio và file nén!"
+          `File không được hỗ trợ! File: ${originalName} (${file.mimetype}). Chỉ chấp nhận: PDF, DOC, DOCX, Excel (XLS/XLSX), TXT, hình ảnh, video, audio và file nén.`
         )
       );
     }
@@ -166,6 +207,18 @@ db.serialize(() => {
   // Add columns to existing posts table if they don't exist
   db.run(`ALTER TABLE posts ADD COLUMN category_id INTEGER`, () => {});
   db.run(`ALTER TABLE posts ADD COLUMN view_count INTEGER DEFAULT 0`, () => {});
+
+  // Table cho post files (multiple files per post)
+  db.run(`CREATE TABLE IF NOT EXISTS post_files (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id INTEGER NOT NULL,
+        file_path TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        file_size INTEGER,
+        file_order INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE
+    )`);
 
   // Table cho edit history
   db.run(`CREATE TABLE IF NOT EXISTS post_history (
@@ -501,7 +554,7 @@ app.get("/upload", requireAuth, (req, res) => {
 });
 
 // Xử lý upload
-app.post("/upload", requireAuth, upload.single("file"), (req, res) => {
+app.post("/upload", requireAuth, upload.array("files", 10), (req, res) => {
   // Kiểm tra quyền đăng bài trước khi xử lý
   db.get(
     "SELECT can_post FROM users WHERE id = ?",
@@ -519,7 +572,7 @@ app.post("/upload", requireAuth, upload.single("file"), (req, res) => {
       }
 
       const { title, content, category_id } = req.body;
-      const file = req.file;
+      const files = req.files || [];
 
       if (!title) {
         return res.status(400).send("Tiêu đề không được để trống!");
@@ -529,30 +582,36 @@ app.post("/upload", requireAuth, upload.single("file"), (req, res) => {
         return res.status(400).send("Vui lòng chọn danh mục!");
       }
 
-      const filePath = file ? file.path : null;
-      // Fix UTF-8 encoding for Vietnamese file names in database
-      const fileName = file
-        ? Buffer.from(file.originalname, "latin1").toString("utf8")
-        : null;
-      const fileSize = file ? file.size : null;
-
+      // Insert post first
       db.run(
-        `INSERT INTO posts (title, content, file_path, file_name, file_size, category_id, user_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          title,
-          content || "",
-          filePath,
-          fileName,
-          fileSize,
-          category_id,
-          req.session.userId,
-        ],
+        `INSERT INTO posts (title, content, category_id, user_id)
+                VALUES (?, ?, ?, ?)`,
+        [title, content || "", category_id, req.session.userId],
         function (err) {
           if (err) {
             console.error(err);
             return res.status(500).send("Lỗi khi lưu bài đăng!");
           }
+
+          const postId = this.lastID;
+
+          // Insert files if any
+          if (files.length > 0) {
+            const insertFile = db.prepare(
+              `INSERT INTO post_files (post_id, file_path, file_name, file_size, file_order) VALUES (?, ?, ?, ?, ?)`
+            );
+
+            files.forEach((file, index) => {
+              const fileName = Buffer.from(
+                file.originalname,
+                "latin1"
+              ).toString("utf8");
+              insertFile.run([postId, file.path, fileName, file.size, index]);
+            });
+
+            insertFile.finalize();
+          }
+
           res.redirect("/");
         }
       );
@@ -754,8 +813,18 @@ app.get("/post/:id", requireAuth, (req, res) => {
           );
           post.content_html = renderMarkdown(post.content);
 
-          // Show post detail page
-          res.send(generatePostDetailPage(post, req.session, categories));
+          // Load post files
+          loadPostFiles(postId, (err, files) => {
+            if (err) {
+              console.error(err);
+              files = [];
+            }
+
+            post.files = files;
+
+            // Show post detail page
+            res.send(generatePostDetailPage(post, req.session, categories));
+          });
         }
       );
     }
@@ -888,6 +957,61 @@ app.get("/download/:id", requireAuth, (req, res) => {
         res.setHeader(
           "Content-Disposition",
           `inline; filename="${post.file_name}"`
+        );
+        res.sendFile(filePath);
+      }
+    } else {
+      res.status(404).send("File không tìm thấy!");
+    }
+  });
+});
+
+// Download file by file ID (new multiple files support)
+app.get("/download/file/:fileId", requireAuth, (req, res) => {
+  const fileId = req.params.fileId;
+  const download = req.query.download === "true"; // Check if forced download
+
+  db.get("SELECT * FROM post_files WHERE id = ?", [fileId], (err, file) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send("Lỗi database");
+    }
+
+    if (!file || !file.file_path) {
+      return res.status(404).send("File không tồn tại!");
+    }
+
+    const filePath = path.join(__dirname, file.file_path);
+    if (fs.existsSync(filePath)) {
+      // Get file extension to set proper content type
+      const ext = file.file_name.toLowerCase().split(".").pop();
+
+      // Set content type based on file extension
+      const contentTypes = {
+        pdf: "application/pdf",
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        gif: "image/gif",
+        webp: "image/webp",
+        mp4: "video/mp4",
+        webm: "video/webm",
+        mp3: "audio/mpeg",
+        wav: "audio/wav",
+        ogg: "audio/ogg",
+      };
+
+      const contentType = contentTypes[ext] || "application/octet-stream";
+
+      if (download) {
+        // Force download
+        res.download(filePath, file.file_name);
+      } else {
+        // Allow inline viewing
+        res.setHeader("Content-Type", contentType);
+        res.setHeader(
+          "Content-Disposition",
+          `inline; filename="${file.file_name}"`
         );
         res.sendFile(filePath);
       }
@@ -1175,65 +1299,133 @@ app.get("/edit/:id", requireAuth, (req, res) => {
         console.error(err);
         categories = [];
       }
-      res.send(generateEditPage(post, req.session, categories));
+
+      // Load post files
+      loadPostFiles(postId, (err, files) => {
+        if (err) {
+          console.error(err);
+          files = [];
+        }
+
+        post.files = files;
+        res.send(generateEditPage(post, req.session, categories));
+      });
     });
   });
 });
 
-app.post("/edit/:id", requireAuth, (req, res) => {
-  const postId = req.params.id;
-  const { title, content } = req.body;
+app.post(
+  "/edit/:id",
+  requireAuth,
+  upload.array("new_files", 10),
+  (req, res) => {
+    const postId = req.params.id;
+    const { title, content, category_id, remove_files } = req.body;
+    const newFiles = req.files || [];
 
-  if (!title) {
-    return res.status(400).send("Tiêu đề không được để trống!");
+    if (!title) {
+      return res.status(400).send("Tiêu đề không được để trống!");
+    }
+
+    if (!category_id) {
+      return res.status(400).send("Vui lòng chọn danh mục!");
+    }
+
+    // Lấy thông tin bài đăng cũ để lưu lịch sử
+    db.get("SELECT * FROM posts WHERE id = ?", [postId], (err, oldPost) => {
+      if (err || !oldPost) {
+        return res.status(404).send("Bài đăng không tồn tại!");
+      }
+
+      // Kiểm tra quyền chỉnh sửa
+      if (
+        req.session.userRole !== "admin" &&
+        oldPost.user_id !== req.session.userId
+      ) {
+        return res
+          .status(403)
+          .send("Bạn không có quyền chỉnh sửa bài đăng này!");
+      }
+
+      // Handle file operations
+      // 1. Remove files marked for deletion
+      if (remove_files && Array.isArray(remove_files)) {
+        remove_files.forEach((fileId) => {
+          if (fileId) {
+            db.get(
+              "SELECT * FROM post_files WHERE id = ? AND post_id = ?",
+              [fileId, postId],
+              (err, file) => {
+                if (
+                  !err &&
+                  file &&
+                  file.file_path &&
+                  fs.existsSync(file.file_path)
+                ) {
+                  const deletedPath = path.join(
+                    "deleted",
+                    path.basename(file.file_path)
+                  );
+                  fs.renameSync(file.file_path, deletedPath);
+                }
+                db.run("DELETE FROM post_files WHERE id = ?", [fileId]);
+              }
+            );
+          }
+        });
+      }
+
+      // Legacy file handling is no longer needed
+
+      // Lưu lịch sử chỉnh sửa
+      db.run(
+        "INSERT INTO post_history (post_id, old_title, old_content, new_title, new_content, edited_by) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+          postId,
+          oldPost.title,
+          oldPost.content,
+          title,
+          content || "",
+          req.session.userId,
+        ],
+        (err) => {
+          if (err) {
+            console.error(err);
+          }
+        }
+      );
+
+      // 3. Add new files
+      if (newFiles.length > 0) {
+        const insertFile = db.prepare(
+          `INSERT INTO post_files (post_id, file_path, file_name, file_size, file_order) VALUES (?, ?, ?, ?, ?)`
+        );
+
+        newFiles.forEach((file, index) => {
+          const fileName = Buffer.from(file.originalname, "latin1").toString(
+            "utf8"
+          );
+          insertFile.run([postId, file.path, fileName, file.size, index]);
+        });
+
+        insertFile.finalize();
+      }
+
+      // Update post information
+      db.run(
+        "UPDATE posts SET title = ?, content = ?, category_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [title, content || "", category_id, postId],
+        (err) => {
+          if (err) {
+            console.error(err);
+            return res.status(500).send("Lỗi khi cập nhật bài đăng!");
+          }
+          res.redirect("/");
+        }
+      );
+    });
   }
-
-  // Lấy thông tin bài đăng cũ để lưu lịch sử
-  db.get("SELECT * FROM posts WHERE id = ?", [postId], (err, oldPost) => {
-    if (err || !oldPost) {
-      return res.status(404).send("Bài đăng không tồn tại!");
-    }
-
-    // Kiểm tra quyền chỉnh sửa
-    if (
-      req.session.userRole !== "admin" &&
-      oldPost.user_id !== req.session.userId
-    ) {
-      return res.status(403).send("Bạn không có quyền chỉnh sửa bài đăng này!");
-    }
-
-    // Lưu lịch sử chỉnh sửa
-    db.run(
-      "INSERT INTO post_history (post_id, old_title, old_content, new_title, new_content, edited_by) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        postId,
-        oldPost.title,
-        oldPost.content,
-        title,
-        content || "",
-        req.session.userId,
-      ],
-      (err) => {
-        if (err) {
-          console.error(err);
-        }
-      }
-    );
-
-    // Cập nhật bài đăng
-    db.run(
-      "UPDATE posts SET title = ?, content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [title, content || "", postId],
-      (err) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).send("Lỗi khi cập nhật bài đăng!");
-        }
-        res.redirect("/");
-      }
-    );
-  });
-});
+);
 
 // View edit history
 app.get("/history/:id", requireAuth, (req, res) => {

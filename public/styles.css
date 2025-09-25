@@ -2773,3 +2773,69 @@ body {
   color: white;
   font-weight: 600;
 }
+
+/* Multiple files support */
+.file-list-preview {
+  margin-top: 10px;
+}
+
+.file-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-light);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.file-preview-item .file-icon {
+  font-size: 16px;
+}
+
+.file-preview-item .file-name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--text-dark);
+}
+
+.file-preview-item .file-size {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.btn-remove-file {
+  background: var(--btn-danger);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.btn-remove-file:hover {
+  background: var(--btn-danger-hover);
+}
+
+.current-files .file-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg-light);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.current-files .file-info[style*="opacity: 0.5"] {
+  background: var(--bg-warning);
+  border-color: var(--border-warning);
+}
