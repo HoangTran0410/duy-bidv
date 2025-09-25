@@ -124,7 +124,7 @@ function generateCategoryDropdown(categories, selectedCategory = null) {
   return `
     <div class="dropdown" id="categoryDropdown">
       <button class="dropdown-toggle">
-        Danh mục
+        📋 Danh mục
       </button>
       <div class="dropdown-menu">
         <a href="/?category=" class="dropdown-item ${
@@ -259,6 +259,7 @@ function generateNavigation(session, currentPage = "", categories = []) {
         </div>
         <div class="header-right">
           <span class="user-info">
+            <span class="user-avatar-icon">👤</span>
             <span class="user-name">${session.userName}</span>
           </span>
           <form action="/logout" method="POST" style="display: inline;">
@@ -269,36 +270,192 @@ function generateNavigation(session, currentPage = "", categories = []) {
     </header>
     <nav class="main-nav">
       <div class="main-nav-content">
-        <div class="nav-left">
+        <!-- Mobile Logo (Mobile Only) -->
+        <div class="mobile-logo">
+          <img src="/logo.png" alt="BIDV" class="mobile-logo-img">
+        </div>
+
+        <!-- Desktop Navigation -->
+        <div class="nav-left desktop-nav">
           <a href="/" class="nav-link ${
             currentPage === "home" ? "active" : ""
-          }">Trang chủ</a>
+          }">🏠 Trang chủ</a>
           ${generateCategoryDropdown(categories)}
           <a href="/upload" class="nav-link ${
             currentPage === "upload" ? "active" : ""
-          }">Đăng bài</a>
+          }">📤 Đăng bài</a>
           ${
             session.userRole === "admin"
               ? `
             <a href="/admin" class="nav-link ${
               currentPage === "admin" ? "active" : ""
-            }">Cấu hình</a>
+            }">⚙️ Cấu hình</a>
             <a href="/users" class="nav-link ${
               currentPage === "users" ? "active" : ""
-            }">Người dùng</a>
+            }">👥 Người dùng</a>
           `
               : ""
           }
         </div>
-        <div class="nav-right">
+        <div class="nav-right desktop-nav">
           <div class="nav-search-box">
             <form action="/search" method="GET" class="search-form">
               <input type="text" name="q" placeholder="Tìm tài liệu..." class="search-input" required>
             </form>
           </div>
         </div>
+
+        <!-- Hamburger Menu Button (Mobile Only) -->
+        <button class="hamburger-menu" id="hamburgerMenu" aria-label="Menu">
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+        </button>
+      </div>
+
+      <!-- Mobile Drawer Menu -->
+      <div class="mobile-drawer" id="mobileDrawer">
+        <div class="mobile-drawer-overlay" id="drawerOverlay"></div>
+        <div class="mobile-drawer-content">
+          <div class="mobile-drawer-header">
+            <div class="mobile-user-info">
+              <div class="mobile-user-avatar">👤</div>
+              <div class="mobile-user-details">
+                <div class="mobile-user-name">${session.userName}</div>
+                <div class="mobile-user-role">${
+                  session.userRole === "admin" ? "Quản trị viên" : "Người dùng"
+                }</div>
+              </div>
+            </div>
+            <button class="mobile-drawer-close" id="drawerClose" aria-label="Đóng menu">✕</button>
+          </div>
+
+          <div class="mobile-drawer-search">
+            <form action="/search" method="GET" class="mobile-search-form">
+              <input type="text" name="q" placeholder="Tìm tài liệu..." class="mobile-search-input" required>
+              <button type="submit" class="mobile-search-btn">🔍</button>
+            </form>
+          </div>
+
+          <div class="mobile-drawer-nav">
+            <a href="/" class="mobile-nav-link ${
+              currentPage === "home" ? "active" : ""
+            }">
+              <span class="mobile-nav-icon">🏠</span>
+              Trang chủ
+            </a>
+
+            <div class="mobile-categories-section">
+              <div class="mobile-section-title">Danh mục</div>
+              <a href="/?category=" class="mobile-nav-link mobile-category-link">
+                <span class="mobile-nav-icon">📋</span>
+                Tất cả
+              </a>
+              ${categories
+                .map(
+                  (category) => `
+                <a href="/?category=${
+                  category.id
+                }" class="mobile-nav-link mobile-category-link">
+                  <span class="mobile-nav-icon">${category.icon}</span>
+                  ${category.name}
+                  <span class="mobile-category-count">${
+                    category.post_count || 0
+                  }</span>
+                </a>
+              `
+                )
+                .join("")}
+            </div>
+
+            <a href="/upload" class="mobile-nav-link ${
+              currentPage === "upload" ? "active" : ""
+            }">
+              <span class="mobile-nav-icon">📤</span>
+              Đăng bài
+            </a>
+
+            ${
+              session.userRole === "admin"
+                ? `
+            <a href="/admin" class="mobile-nav-link ${
+              currentPage === "admin" ? "active" : ""
+            }">
+              <span class="mobile-nav-icon">⚙️</span>
+              Cấu hình
+            </a>
+            <a href="/users" class="mobile-nav-link ${
+              currentPage === "users" ? "active" : ""
+            }">
+              <span class="mobile-nav-icon">👥</span>
+              Người dùng
+            </a>
+            `
+                : ""
+            }
+          </div>
+
+          <div class="mobile-drawer-footer">
+            <form action="/logout" method="POST" class="mobile-logout-form">
+              <button type="submit" class="mobile-logout-btn">
+                <span class="mobile-nav-icon">🚪</span>
+                Đăng xuất
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
     </nav>
+
+    <script>
+      // Mobile hamburger menu functionality
+      document.addEventListener('DOMContentLoaded', function() {
+        const hamburgerMenu = document.getElementById('hamburgerMenu');
+        const mobileDrawer = document.getElementById('mobileDrawer');
+        const drawerOverlay = document.getElementById('drawerOverlay');
+        const drawerClose = document.getElementById('drawerClose');
+
+        function openDrawer() {
+          mobileDrawer.classList.add('active');
+          document.body.classList.add('drawer-open');
+          hamburgerMenu.classList.add('active');
+        }
+
+        function closeDrawer() {
+          mobileDrawer.classList.remove('active');
+          document.body.classList.remove('drawer-open');
+          hamburgerMenu.classList.remove('active');
+        }
+
+        if (hamburgerMenu) {
+          hamburgerMenu.addEventListener('click', openDrawer);
+        }
+
+        if (drawerClose) {
+          drawerClose.addEventListener('click', closeDrawer);
+        }
+
+        if (drawerOverlay) {
+          drawerOverlay.addEventListener('click', closeDrawer);
+        }
+
+        // Close drawer when clicking on nav links
+        const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+        mobileNavLinks.forEach(link => {
+          link.addEventListener('click', function() {
+            // Small delay to allow navigation to start
+            setTimeout(closeDrawer, 100);
+          });
+        });
+
+        // Close drawer on escape key
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && mobileDrawer.classList.contains('active')) {
+            closeDrawer();
+          }
+        });
+      });
+    </script>
   `;
 }
 
@@ -456,7 +613,7 @@ function generateHomePage(
                         ? `
                     <div class="pagination-container">
                         <div class="post-count">
-                            Tổng cộng: <strong>${totalPosts}</strong> bài viết
+                            <strong>${totalPosts}</strong> bài viết
                         </div>
                         <div class="pagination">
                             ${
