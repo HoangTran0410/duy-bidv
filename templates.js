@@ -1,5 +1,157 @@
 const moment = require("moment");
 
+// Exchange rates data (normally this would come from an API)
+function getExchangeRates() {
+  return [
+    {
+      code: "USD",
+      buy: "25,140",
+      sell: "25,140",
+      transfer: "25,500",
+      flag: "🇺🇸",
+    },
+    { code: "USD-HM-2H", buy: "25,090", sell: "0", transfer: "0", flag: "🇺🇸" },
+    { code: "USD-M-5-9", buy: "25,090", sell: "0", transfer: "0", flag: "🇺🇸" },
+    {
+      code: "EUR",
+      buy: "30,195",
+      sell: "30,239",
+      transfer: "31,430",
+      flag: "🇪🇺",
+    },
+    {
+      code: "GBP",
+      buy: "35,038",
+      sell: "35,131",
+      transfer: "36,021",
+      flag: "🇬🇧",
+    },
+    { code: "HKD", buy: "3,212", sell: "3,232", transfer: "3,322", flag: "🇭🇰" },
+    {
+      code: "CHF",
+      buy: "29,160",
+      sell: "32,580",
+      transfer: "33,564",
+      flag: "🇨🇭",
+    },
+    {
+      code: "JPY",
+      buy: "178,13",
+      sell: "178,43",
+      transfer: "182,8",
+      flag: "🇯🇵",
+    },
+    {
+      code: "THB",
+      buy: "768,82",
+      sell: "779,12",
+      transfer: "812,47",
+      flag: "🇹🇭",
+    },
+    {
+      code: "AUD",
+      buy: "16,208",
+      sell: "16,769",
+      transfer: "17,326",
+      flag: "🇦🇺",
+    },
+    {
+      code: "CAD",
+      buy: "18,457",
+      sell: "18,717",
+      transfer: "19,254",
+      flag: "🇨🇦",
+    },
+    {
+      code: "SGD",
+      buy: "20,084",
+      sell: "20,146",
+      transfer: "20,819",
+      flag: "🇸🇬",
+    },
+    { code: "KRW", buy: "0", sell: "2,684", transfer: "2,767", flag: "🇰🇷" },
+    { code: "LAK", buy: "0", sell: "0,93", transfer: "1,29", flag: "🇱🇦" },
+    { code: "DKK", buy: "0", sell: "4,034", transfer: "4,173", flag: "🇩🇰" },
+  ];
+}
+
+// Generate exchange rates widget
+function generateExchangeRatesWidget() {
+  const rates = getExchangeRates();
+  const currentDate = moment().format("DD/MM/YYYY");
+
+  return `
+    <div class="exchange-rates">
+      <div class="rates-header">
+        BẢNG TỶ GIÁ NGOẠI TỆ
+      </div>
+      <div class="rates-date">
+        Thông báo lần 1 - ngày: ${currentDate}
+      </div>
+      <table class="rates-table">
+        <thead>
+          <tr>
+            <th>Mã ngoại tệ<br>Currency</th>
+            <th>Mua TM<br>Cash</th>
+            <th>Mua CK<br>Transfer/Cheque</th>
+            <th>Bán<br>Selling</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rates
+            .map(
+              (rate) => `
+            <tr>
+              <td>
+                <span class="currency-flag">${rate.flag}</span>
+                <span class="currency-code">${rate.code}</span>
+              </td>
+              <td class="rate-value">${rate.buy}</td>
+              <td class="rate-value">${rate.sell}</td>
+              <td class="rate-value">${rate.transfer}</td>
+            </tr>
+          `
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// Generate category dropdown menu
+function generateCategoryDropdown(categories, selectedCategory = null) {
+  return `
+    <div class="dropdown" id="categoryDropdown">
+      <button class="dropdown-toggle" onclick="toggleDropdown('categoryDropdown')">
+        Danh mục
+      </button>
+      <div class="dropdown-menu">
+        <a href="/?category=" class="dropdown-item ${
+          !selectedCategory ? "active" : ""
+        }">
+          <span class="category-icon">📋</span>
+          <span class="category-name">Tất cả</span>
+          <span class="category-count"></span>
+        </a>
+        ${categories
+          .map(
+            (category) => `
+          <a href="/?category=${category.id}" class="dropdown-item ${
+              selectedCategory == category.id ? "active" : ""
+            }">
+            <span class="category-icon">${category.icon}</span>
+            <span class="category-name">${category.name}</span>
+            <span class="category-count">${category.post_count || 0}</span>
+          </a>
+        `
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
 // Login Page Template
 function generateLoginPage(error = "") {
   return `
@@ -48,49 +200,91 @@ function generateLoginPage(error = "") {
 }
 
 // Navigation Component
-function generateNavigation(session, currentPage = "") {
+function generateNavigation(session, currentPage = "", categories = []) {
   return `
+    <header class="bidv-header">
+      <div class="bidv-header-content">
+        <div class="bidv-logo-section">
+          <div class="bidv-logo">BIDV</div>
+          <div>
+            <div class="bank-name">NGÂN HÀNG TMCP ĐẦU TƯ VÀ PHÁT TRIỂN VIỆT NAM</div>
+            <div class="branch-name">CN QUẬN 7 SÀI GÒN</div>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="search-box">
+            <input type="text" placeholder="Tìm tài liệu, văn bản..." style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; width: 250px;">
+          </div>
+        </div>
+      </div>
+    </header>
     <nav class="main-nav">
-      <div class="nav-left">
-        <h1 class="system-title">BIDV Intranet Portal</h1>
-      </div>
-      <div class="nav-center">
-        <a href="/" class="nav-link ${
-          currentPage === "home" ? "active" : ""
-        }">Trang chủ</a>
-        <a href="/upload" class="nav-link ${
-          currentPage === "upload" ? "active" : ""
-        }">Đăng bài</a>
-        ${
-          session.userRole === "admin"
-            ? `
-          <a href="/admin" class="nav-link ${
-            currentPage === "admin" ? "active" : ""
-          }">Quản trị</a>
-          <a href="/users" class="nav-link ${
-            currentPage === "users" ? "active" : ""
-          }">Người dùng</a>
-        `
-            : ""
-        }
-      </div>
-      <div class="nav-right">
-        <span class="user-info">
-          <span class="user-name">${session.userName}</span>
-          <span class="user-role">(${
-            session.userRole === "admin" ? "Quản trị viên" : "Người dùng"
-          })</span>
-        </span>
-        <form action="/logout" method="POST" style="display: inline;">
-          <button type="submit" class="logout-btn">Đăng xuất</button>
-        </form>
+      <div class="main-nav-content">
+        <div class="nav-left">
+          <a href="/" class="nav-link ${
+            currentPage === "home" ? "active" : ""
+          }">Trang chủ</a>
+          <a href="/upload" class="nav-link ${
+            currentPage === "upload" ? "active" : ""
+          }">Đăng bài</a>
+          ${generateCategoryDropdown(categories)}
+          ${
+            session.userRole === "admin"
+              ? `
+            <a href="/admin" class="nav-link ${
+              currentPage === "admin" ? "active" : ""
+            }">Cấu hình</a>
+            <a href="/users" class="nav-link ${
+              currentPage === "users" ? "active" : ""
+            }">Người dùng</a>
+          `
+              : ""
+          }
+        </div>
+        <div class="nav-right">
+          <span class="user-info">
+            <span class="user-name">${session.userName}</span>
+            <span class="user-role">(${
+              session.userRole === "admin" ? "Quản trị viên" : "Người dùng"
+            })</span>
+          </span>
+          <form action="/logout" method="POST" style="display: inline;">
+            <button type="submit" class="logout-btn">Đăng xuất</button>
+          </form>
+        </div>
       </div>
     </nav>
+    <script>
+      function toggleDropdown(dropdownId) {
+        const dropdown = document.getElementById(dropdownId);
+        dropdown.classList.toggle('active');
+
+        // Close other dropdowns
+        document.querySelectorAll('.dropdown').forEach(d => {
+          if (d.id !== dropdownId) {
+            d.classList.remove('active');
+          }
+        });
+      }
+
+      // Close dropdowns when clicking outside
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.dropdown')) {
+          document.querySelectorAll('.dropdown').forEach(d => {
+            d.classList.remove('active');
+          });
+        }
+      });
+    </script>
   `;
 }
 
 // Home Page Template
-function generateHomePage(posts, announcement, session) {
+function generateHomePage(posts, announcement, session, categories = []) {
+  const currentPage = 1;
+  const totalPages = Math.ceil(posts.length / 5);
+  const displayPosts = posts.slice(0, 5); // Show only first 5 posts
+
   return `
 <!DOCTYPE html>
 <html lang="vi">
@@ -101,106 +295,167 @@ function generateHomePage(posts, announcement, session) {
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    ${generateNavigation(session, "home")}
+    ${generateNavigation(session, "home", categories)}
 
     <div class="container">
-        ${
-          announcement
-            ? `
-        <div class="announcement">
-            <h3>📢 Thông báo quan trọng</h3>
-            <p>${announcement}</p>
-        </div>
-        `
-            : ""
-        }
-
         <main class="main-content">
-            <div class="page-header">
-                <h2>Danh sách tài liệu gần đây</h2>
-                <div class="page-actions">
-                    <a href="/upload" class="btn btn-primary">+ Đăng tài liệu mới</a>
-                </div>
-            </div>
-
-            ${
-              posts.length === 0
-                ? '<div class="no-posts">Chưa có tài liệu nào được đăng.</div>'
-                : ""
-            }
-
-            <div class="posts-list">
-                ${posts
-                  .map(
-                    (post) => `
-                <div class="post-item">
-                    <div class="post-header">
-                        <div class="post-info">
-                            <h3 class="post-title">${post.title}</h3>
-                            <div class="post-meta">
-                                <span class="post-author">Đăng bởi: ${
-                                  post.author_name || "Không xác định"
-                                }</span>
-                                <span class="post-date">${moment(
-                                  post.created_at
-                                ).format("DD/MM/YYYY HH:mm")}</span>
-                                <span class="post-type ${post.type}">${
-                      post.type === "announcement" ? "Thông báo" : "Tài liệu"
-                    }</span>
-                            </div>
-                        </div>
-                        <div class="post-actions">
-                            ${
-                              session.userRole === "admin" ||
-                              post.user_id === session.userId
-                                ? `
-                                <a href="/edit/${post.id}" class="btn btn-sm">Sửa</a>
-                            `
-                                : ""
-                            }
-                            <a href="/history/${
-                              post.id
-                            }" class="btn btn-sm">Lịch sử</a>
-                            ${
-                              session.userRole === "admin"
-                                ? `
-                                <button onclick="deletePost(${post.id})" class="btn btn-sm btn-danger">Xóa</button>
-                            `
-                                : ""
-                            }
-                        </div>
+            <div class="content-left">
+                <div class="news-section">
+                    <div class="section-header">
+                        THÔNG TIN NỘI BẬT
                     </div>
 
                     ${
-                      post.content
-                        ? `<div class="post-content">${post.content}</div>`
-                        : ""
-                    }
-
-                    ${
-                      post.file_name
+                      announcement
                         ? `
-                    <div class="file-attachment">
-                        <div class="file-info">
-                            <span class="file-icon">📎</span>
-                            <span class="file-name">${post.file_name}</span>
-                            <span class="file-size">(${
-                              post.file_size
-                                ? (post.file_size / (1024 * 1024)).toFixed(2)
-                                : "0"
-                            } MB)</span>
-                        </div>
-                        <a href="/download/${
-                          post.id
-                        }" class="btn btn-sm btn-download">Tải về</a>
+                    <div class="announcement" style="margin: 0 0 20px 0; background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 6px;">
+                        <strong>📢 Thông báo quan trọng:</strong> ${announcement}
                     </div>
                     `
                         : ""
                     }
+
+                    <div class="news-count">${posts.length} item</div>
+
+                    <ul class="news-list">
+                        ${displayPosts
+                          .map(
+                            (post) => `
+                        <li class="news-item">
+                            <div class="news-icon">${
+                              post.category_icon || "📰"
+                            }</div>
+                            <div class="news-content">
+                                <a href="/post/${post.id}" class="news-title">${
+                              post.title
+                            }</a>
+                                <div class="news-meta">
+                                    <span class="news-author">${
+                                      post.author_name || "Không xác định"
+                                    }</span>
+                                    <span class="news-date">Ngày đăng tài: ${moment(
+                                      post.created_at
+                                    ).format("DD/MM/YYYY")}</span>
+                                    <span class="news-views">👁 ${
+                                      post.view_count || 0
+                                    } lượt xem</span>
+                                    ${
+                                      post.category_name
+                                        ? `<span class="news-category">${
+                                            post.category_icon || "📋"
+                                          } ${post.category_name}</span>`
+                                        : ""
+                                    }
+                                </div>
+                                ${
+                                  post.content
+                                    ? `<div style="margin-top: 8px; font-size: 13px; color: var(--text-secondary); line-height: 1.4;">${post.content.substring(
+                                        0,
+                                        100
+                                      )}${
+                                        post.content.length > 100 ? "..." : ""
+                                      }</div>`
+                                    : ""
+                                }
+                                ${
+                                  post.file_name
+                                    ? `
+                                <div style="margin-top: 8px; display: flex; gap: 10px; align-items: center;">
+                                    <span style="font-size: 12px; color: var(--text-secondary);">📎 ${
+                                      post.file_name
+                                    }</span>
+                                    <a href="/download/${
+                                      post.id
+                                    }" style="font-size: 12px; color: var(--bidv-green); text-decoration: none;">Tải về</a>
+                                     ${
+                                       session.userRole === "admin" ||
+                                       post.user_id === session.userId
+                                         ? `<a href="/edit/${post.id}" style="font-size: 12px; color: var(--bidv-green); text-decoration: none;">Sửa</a>`
+                                         : ""
+                                     }
+                                     ${
+                                       session.userRole === "admin"
+                                         ? `<button onclick="deletePost(${post.id})" style="font-size: 12px; color: #dc3545; background: none; border: none; cursor: pointer;">Xóa</button>`
+                                         : ""
+                                     }
+                                </div>
+                                `
+                                    : `
+                                <div style="margin-top: 8px; display: flex; gap: 10px;">
+                                    ${
+                                      session.userRole === "admin" ||
+                                      post.user_id === session.userId
+                                        ? `<a href="/edit/${post.id}" style="font-size: 12px; color: var(--bidv-green); text-decoration: none;">Sửa</a>`
+                                        : ""
+                                    }
+                                    <a href="/history/${
+                                      post.id
+                                    }" style="font-size: 12px; color: var(--bidv-green); text-decoration: none;">Lịch sử</a>
+                                    ${
+                                      session.userRole === "admin"
+                                        ? `<button onclick="deletePost(${post.id})" style="font-size: 12px; color: var(--btn-danger); background: none; border: none; cursor: pointer;">Xóa</button>`
+                                        : ""
+                                    }
+                                </div>
+                                `
+                                }
+                            </div>
+                        </li>
+                        `
+                          )
+                          .join("")}
+                    </ul>
+
+                    ${
+                      posts.length > 5
+                        ? `
+                    <div class="pagination-container">
+                        <div class="pagination">
+                            <a href="#" class="disabled">‹</a>
+                            <span class="current">1</span>
+                            <a href="#">2</a>
+                            <a href="#">3</a>
+                            <a href="#">4</a>
+                            <a href="#">5</a>
+                            <span>...</span>
+                            <a href="#">45</a>
+                            <a href="#">›</a>
+                        </div>
+                    </div>
+                    `
+                        : ""
+                    }
+
+                    ${
+                      posts.length === 0
+                        ? '<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-style: italic;">Chưa có tài liệu nào được đăng.</div>'
+                        : ""
+                    }
                 </div>
-                `
-                  )
-                  .join("")}
+
+                <div style="margin-top: 20px; text-align: center;">
+                    <a href="/upload" style="background: var(--bidv-green); color: var(--text-white); padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">+ Đăng tài liệu mới</a>
+                </div>
+            </div>
+
+            <div class="content-right">
+                ${generateExchangeRatesWidget()}
+
+                <div style="margin-top: 30px;">
+                    <div class="section-header">
+                        THÔNG TIN CHUNG
+                    </div>
+                    <div style="padding: 15px 0;">
+                        <p style="font-size: 13px; color: #666; line-height: 1.5;">
+                            Portal nội bộ dành cho việc chia sẻ tài liệu, thông báo và thông tin quan trọng của ngân hàng.
+                        </p>
+                        <hr style="margin: 15px 0; border: none; border-top: 1px solid #f0f0f0;">
+                        <p style="font-size: 12px; color: #999;">
+                            © 2024 Ngân hàng TMCP Đầu tư và Phát triển Việt Nam<br>
+                            Chi nhánh Quận 7 Sài Gòn
+                        </p>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -219,7 +474,7 @@ function generateHomePage(posts, announcement, session) {
 }
 
 // Upload Page Template
-function generateUploadPage(session) {
+function generateUploadPage(session, categories = []) {
   return `
 <!DOCTYPE html>
 <html lang="vi">
@@ -230,10 +485,10 @@ function generateUploadPage(session) {
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    ${generateNavigation(session, "upload")}
+    ${generateNavigation(session, "upload", categories)}
 
     <div class="container">
-        <main class="main-content">
+        <main class="normal-main-content">
             <div class="page-header">
                 <h2>Đăng tài liệu mới</h2>
             </div>
@@ -246,10 +501,16 @@ function generateUploadPage(session) {
                     </div>
 
                     <div class="form-group">
-                        <label for="type">Loại tài liệu</label>
-                        <select id="type" name="type">
-                            <option value="post">Tài liệu thường</option>
-                            <option value="announcement">Thông báo</option>
+                        <label for="category_id">Danh mục *</label>
+                        <select id="category_id" name="category_id" required>
+                            <option value="">Chọn danh mục...</option>
+                            ${categories
+                              .map(
+                                (category) => `
+                                <option value="${category.id}">${category.icon} ${category.name}</option>
+                            `
+                              )
+                              .join("")}
                         </select>
                     </div>
                 </div>
@@ -292,7 +553,7 @@ function generateAdminPage(announcement, session) {
     ${generateNavigation(session, "admin")}
 
     <div class="container">
-        <main class="main-content">
+        <main class="normal-main-content">
             <div class="page-header">
                 <h2>Quản trị hệ thống</h2>
             </div>
@@ -345,7 +606,7 @@ function generateUsersPage(users, session) {
     ${generateNavigation(session, "users")}
 
     <div class="container">
-        <main class="main-content">
+        <main class="normal-main-content">
             <div class="page-header">
                 <h2>Quản lý người dùng</h2>
                 <div class="page-actions">
@@ -486,7 +747,7 @@ function generateEditPage(post, session) {
     ${generateNavigation(session)}
 
     <div class="container">
-        <main class="main-content">
+        <main class="user-main-content">
             <div class="page-header">
                 <h2>Chỉnh sửa tài liệu</h2>
             </div>
@@ -552,7 +813,7 @@ function generateHistoryPage(post, history, session) {
     ${generateNavigation(session)}
 
     <div class="container">
-        <main class="main-content">
+        <main class="normal-main-content">
             <div class="page-header">
                 <h2>Lịch sử chỉnh sửa: ${post.title}</h2>
                 <div class="page-actions">
@@ -637,7 +898,7 @@ function generateNoPermissionPage(
     ${generateNavigation(session)}
 
     <div class="container">
-        <main class="main-content">
+        <main class="normal-main-content">
             <div class="no-permission-container">
                 <div class="no-permission-icon">
                     🚫

@@ -99,7 +99,16 @@ db.serialize(() => {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-  // Table cho posts (cập nhật với user_id)
+  // Table cho categories
+  db.run(`CREATE TABLE IF NOT EXISTS categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        icon TEXT NOT NULL,
+        color TEXT DEFAULT '#1B7B3A',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+  // Table cho posts (cập nhật với user_id và category_id)
   db.run(`CREATE TABLE IF NOT EXISTS posts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
@@ -108,11 +117,18 @@ db.serialize(() => {
         file_name TEXT,
         file_size INTEGER,
         user_id INTEGER,
+        category_id INTEGER,
+        view_count INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         type TEXT DEFAULT 'post',
-        FOREIGN KEY (user_id) REFERENCES users (id)
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (category_id) REFERENCES categories (id)
     )`);
+
+  // Add columns to existing posts table if they don't exist
+  db.run(`ALTER TABLE posts ADD COLUMN category_id INTEGER`, () => {});
+  db.run(`ALTER TABLE posts ADD COLUMN view_count INTEGER DEFAULT 0`, () => {});
 
   // Table cho edit history
   db.run(`CREATE TABLE IF NOT EXISTS post_history (
@@ -147,6 +163,65 @@ db.serialize(() => {
   // Thêm thông báo mặc định nếu chưa có
   db.run(
     `INSERT OR IGNORE INTO settings (key, value) VALUES ('announcement', '')`
+  );
+
+  // Dọn dẹp categories trùng lặp (chỉ chạy một lần)
+  db.run(
+    `
+    DELETE FROM categories
+    WHERE id NOT IN (
+      SELECT MIN(id)
+      FROM categories
+      GROUP BY name
+    )
+  `,
+    (err) => {
+      if (err) {
+        console.error("Lỗi khi dọn dẹp categories trùng lặp:", err);
+      } else {
+        console.log("Đã dọn dẹp categories trùng lặp.");
+      }
+
+      // Sau khi dọn dẹp, kiểm tra và thêm categories mặc định nếu cần
+      db.get("SELECT COUNT(*) as count FROM categories", (err, result) => {
+        if (err) {
+          console.error("Lỗi khi kiểm tra categories:", err);
+          return;
+        }
+
+        // Chỉ thêm categories mặc định nếu chưa có dữ liệu
+        if (result.count === 0) {
+          const defaultCategories = [
+            { name: "Thông báo lãi suất", icon: "💰" },
+            { name: "Thông báo tỷ giá", icon: "💱" },
+            { name: "Thông báo nội bộ", icon: "📢" },
+            { name: "Thông báo các khoản vay", icon: "🏦" },
+            { name: "Quyết định", icon: "⚖️" },
+            { name: "Biếu phí", icon: "💳" },
+            { name: "Lịch công tác", icon: "📅" },
+            { name: "Cơ chế động lực", icon: "🎯" },
+            { name: "Hoạt động chi nhánh", icon: "🏢" },
+            { name: "Vinh danh", icon: "🏆" },
+            { name: "Tổ chức nhân sự", icon: "👥" },
+          ];
+
+          console.log("Thêm categories mặc định...");
+          defaultCategories.forEach((category) => {
+            db.run(
+              `INSERT INTO categories (name, icon) VALUES (?, ?)`,
+              [category.name, category.icon],
+              (err) => {
+                if (err) {
+                  console.error(`Lỗi khi thêm category ${category.name}:`, err);
+                }
+              }
+            );
+          });
+        } else {
+          console.log(`Đã có ${result.count} categories trong database.`);
+        }
+      });
+    }
   );
 });
 
@@ -212,6 +287,8 @@ app.post("/logout", (req, res) => {
 
 // Trang chủ
 app.get("/", requireAuth, (req, res) => {
+  const selectedCategory = req.query.category || null;
+
   // Lấy thông báo admin
   db.get(
     "SELECT value FROM settings WHERE key = 'announcement'",
@@ -221,35 +298,62 @@ app.get("/", requireAuth, (req, res) => {
         return res.status(500).send("Lỗi database");
       }
 
-      // Lấy danh sách posts mới nhất với thông tin user
+      // Lấy danh sách categories với số lượng posts
       db.all(
-        `SELECT p.*, u.full_name as author_name, u.avatar as author_avatar
-           FROM posts p
-           LEFT JOIN users u ON p.user_id = u.id
-           ORDER BY p.created_at DESC LIMIT 20`,
-        (err, posts) => {
+        `SELECT c.*, COUNT(p.id) as post_count
+         FROM categories c
+         LEFT JOIN posts p ON c.id = p.category_id
+         GROUP BY c.id
+         ORDER BY c.name`,
+        (err, categories) => {
           if (err) {
             console.error(err);
             return res.status(500).send("Lỗi database");
           }
 
-          // Format thời gian
-          posts.forEach((post) => {
-            post.formatted_date = moment(post.created_at).format(
-              "DD/MM/YYYY HH:mm"
-            );
-            post.file_size_mb = post.file_size
-              ? (post.file_size / (1024 * 1024)).toFixed(2)
-              : null;
-          });
+          // Tạo query cho posts với filter category
+          let postsQuery = `
+            SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
+                   c.name as category_name, c.icon as category_icon
+            FROM posts p
+            LEFT JOIN users u ON p.user_id = u.id
+            LEFT JOIN categories c ON p.category_id = c.id
+          `;
+          let queryParams = [];
 
-          res.send(
-            generateHomePage(
-              posts,
-              announcement ? announcement.value : "",
-              req.session
-            )
-          );
+          if (selectedCategory) {
+            postsQuery += " WHERE p.category_id = ?";
+            queryParams.push(selectedCategory);
+          }
+
+          postsQuery += " ORDER BY p.created_at DESC LIMIT 20";
+
+          // Lấy danh sách posts mới nhất với thông tin user và category
+          db.all(postsQuery, queryParams, (err, posts) => {
+            if (err) {
+              console.error(err);
+              return res.status(500).send("Lỗi database");
+            }
+
+            // Format thời gian
+            posts.forEach((post) => {
+              post.formatted_date = moment(post.created_at).format(
+                "DD/MM/YYYY HH:mm"
+              );
+              post.file_size_mb = post.file_size
+                ? (post.file_size / (1024 * 1024)).toFixed(2)
+                : null;
+            });
+
+            res.send(
+              generateHomePage(
+                posts,
+                announcement ? announcement.value : "",
+                req.session,
+                categories
+              )
+            );
+          });
         }
       );
     }
@@ -273,7 +377,15 @@ app.get("/upload", requireAuth, (req, res) => {
             )
           );
       }
-      res.send(generateUploadPage(req.session));
+
+      // Lấy danh sách categories
+      db.all("SELECT * FROM categories ORDER BY name", (err, categories) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).send("Lỗi database");
+        }
+        res.send(generateUploadPage(req.session, categories));
+      });
     }
   );
 });
@@ -296,11 +408,15 @@ app.post("/upload", requireAuth, upload.single("file"), (req, res) => {
           );
       }
 
-      const { title, content, type } = req.body;
+      const { title, content, category_id } = req.body;
       const file = req.file;
 
       if (!title) {
         return res.status(400).send("Tiêu đề không được để trống!");
+      }
+
+      if (!category_id) {
+        return res.status(400).send("Vui lòng chọn danh mục!");
       }
 
       const filePath = file ? file.path : null;
@@ -308,7 +424,7 @@ app.post("/upload", requireAuth, upload.single("file"), (req, res) => {
       const fileSize = file ? file.size : null;
 
       db.run(
-        `INSERT INTO posts (title, content, file_path, file_name, file_size, type, user_id)
+        `INSERT INTO posts (title, content, file_path, file_name, file_size, category_id, user_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           title,
@@ -316,7 +432,7 @@ app.post("/upload", requireAuth, upload.single("file"), (req, res) => {
           filePath,
           fileName,
           fileSize,
-          type || "post",
+          category_id,
           req.session.userId,
         ],
         function (err) {
@@ -358,6 +474,46 @@ app.post("/admin/announcement", requireAdmin, (req, res) => {
         return res.status(500).send("Lỗi khi cập nhật thông báo!");
       }
       res.redirect("/admin");
+    }
+  );
+});
+
+// View single post and increment view count
+app.get("/post/:id", requireAuth, (req, res) => {
+  const postId = req.params.id;
+
+  // Increment view count
+  db.run(
+    "UPDATE posts SET view_count = view_count + 1 WHERE id = ?",
+    [postId],
+    (err) => {
+      if (err) {
+        console.error(err);
+      }
+    }
+  );
+
+  // Get post details
+  db.get(
+    `SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
+            c.name as category_name, c.icon as category_icon
+     FROM posts p
+     LEFT JOIN users u ON p.user_id = u.id
+     LEFT JOIN categories c ON p.category_id = c.id
+     WHERE p.id = ?`,
+    [postId],
+    (err, post) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).send("Lỗi database");
+      }
+
+      if (!post) {
+        return res.status(404).send("Bài viết không tồn tại!");
+      }
+
+      // Redirect back to home page for now, later we can create a dedicated post view
+      res.redirect("/");
     }
   );
 });
