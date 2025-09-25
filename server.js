@@ -230,6 +230,17 @@ db.serialize(() => {
   );
 });
 
+// Helper function to get categories
+function getCategories(callback) {
+  db.all("SELECT * FROM categories ORDER BY name", (err, categories) => {
+    if (err) {
+      console.error("Error fetching categories:", err);
+      return callback(err, []);
+    }
+    callback(null, categories || []);
+  });
+}
+
 // Authentication middleware
 function requireAuth(req, res, next) {
   if (req.session && req.session.userId) {
@@ -473,7 +484,17 @@ app.get("/admin", requireAdmin, (req, res) => {
         console.error(err);
         return res.status(500).send("Lỗi database");
       }
-      res.send(generateAdminPage(result ? result.value : "", req.session));
+
+      // Get categories for navigation
+      getCategories((err, categories) => {
+        if (err) {
+          console.error(err);
+          categories = [];
+        }
+        res.send(
+          generateAdminPage(result ? result.value : "", req.session, categories)
+        );
+      });
     }
   );
 });
@@ -594,7 +615,15 @@ app.get("/users", requireAdmin, (req, res) => {
         console.error(err);
         return res.status(500).send("Lỗi database");
       }
-      res.send(generateUsersPage(users, req.session));
+
+      // Get categories for navigation
+      getCategories((err, categories) => {
+        if (err) {
+          console.error(err);
+          categories = [];
+        }
+        res.send(generateUsersPage(users, req.session, categories));
+      });
     }
   );
 });
@@ -667,7 +696,14 @@ app.get("/edit/:id", requireAuth, (req, res) => {
       return res.status(403).send("Bạn không có quyền chỉnh sửa bài đăng này!");
     }
 
-    res.send(generateEditPage(post, req.session));
+    // Get categories for navigation
+    getCategories((err, categories) => {
+      if (err) {
+        console.error(err);
+        categories = [];
+      }
+      res.send(generateEditPage(post, req.session, categories));
+    });
   });
 });
 
@@ -748,7 +784,14 @@ app.get("/history/:id", requireAuth, (req, res) => {
           return res.status(404).send("Bài đăng không tồn tại!");
         }
 
-        res.send(generateHistoryPage(post, history, req.session));
+        // Get categories for navigation
+        getCategories((err, categories) => {
+          if (err) {
+            console.error(err);
+            categories = [];
+          }
+          res.send(generateHistoryPage(post, history, req.session, categories));
+        });
       });
     }
   );

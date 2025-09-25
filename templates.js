@@ -544,7 +544,7 @@ function generateUploadPage(session, categories = []) {
 }
 
 // Admin Page Template
-function generateAdminPage(announcement, session) {
+function generateAdminPage(announcement, session, categories = []) {
   return `
 <!DOCTYPE html>
 <html lang="vi">
@@ -555,7 +555,7 @@ function generateAdminPage(announcement, session) {
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    ${generateNavigation(session, "admin")}
+    ${generateNavigation(session, "admin", categories)}
 
     <div class="container">
         <main class="normal-main-content">
@@ -597,7 +597,7 @@ function generateAdminPage(announcement, session) {
 }
 
 // Users Management Page Template
-function generateUsersPage(users, session) {
+function generateUsersPage(users, session, categories = []) {
   return `
 <!DOCTYPE html>
 <html lang="vi">
@@ -608,10 +608,10 @@ function generateUsersPage(users, session) {
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    ${generateNavigation(session, "users")}
+    ${generateNavigation(session, "users", categories)}
 
     <div class="container">
-        <main class="normal-main-content">
+        <main class="users-main-content">
             <div class="page-header">
                 <h2>Quản lý người dùng</h2>
                 <div class="page-actions">
@@ -738,7 +738,7 @@ function generateUsersPage(users, session) {
 }
 
 // Edit Post Page Template
-function generateEditPage(post, session) {
+function generateEditPage(post, session, categories = []) {
   return `
 <!DOCTYPE html>
 <html lang="vi">
@@ -749,7 +749,7 @@ function generateEditPage(post, session) {
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    ${generateNavigation(session)}
+    ${generateNavigation(session, "edit", categories)}
 
     <div class="container">
         <main class="user-main-content">
@@ -804,7 +804,7 @@ function generateEditPage(post, session) {
 }
 
 // History Page Template
-function generateHistoryPage(post, history, session) {
+function generateHistoryPage(post, history, session, categories = []) {
   return `
 <!DOCTYPE html>
 <html lang="vi">
@@ -815,7 +815,7 @@ function generateHistoryPage(post, history, session) {
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    ${generateNavigation(session)}
+    ${generateNavigation(session, "history", categories)}
 
     <div class="container">
         <main class="normal-main-content">
