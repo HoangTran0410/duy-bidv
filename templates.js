@@ -174,7 +174,7 @@ function generateLoginPage(error = "") {
         </div>
 
         <form class="login-form" action="/login" method="POST">
-            ${error ? `<div class="error-message">${error}</div>` : ""}
+            ${error ? `<div class="login-error-message">${error}</div>` : ""}
 
             <div class="form-group">
                 <label for="username">Tên đăng nhập</label>

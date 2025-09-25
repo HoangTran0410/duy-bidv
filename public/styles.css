@@ -316,7 +316,7 @@ body {
   font-size: 0.8rem;
 }
 
-.error-message {
+.login-error-message {
   background: var(--btn-danger);
   color: var(--text-white);
   padding: 10px;
