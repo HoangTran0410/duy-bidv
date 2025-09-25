@@ -12,12 +12,13 @@ const {
   generateLoginPage,
   generateHomePage,
   generateUploadPage,
-  generateAdminPage,
-  generateUsersPage,
+  generateAdminUsersPage,
   generateEditPage,
   generateHistoryPage,
   generateNoPermissionPage,
   generatePostDetailPage,
+  generateAdminAnnouncementPage,
+  generateAdminDeletedPage,
 } = require("./templates");
 
 // Helper function to load files for a post
@@ -670,8 +671,36 @@ app.post("/upload", requireAuth, upload.array("files", 10), (req, res) => {
   );
 });
 
-// Trang admin
+// Trang admin chính - redirect to users tab
 app.get("/admin", requireAdmin, (req, res) => {
+  res.redirect("/admin/users");
+});
+
+// Admin Users Tab
+app.get("/admin/users", requireAdmin, (req, res) => {
+  // Get users for admin page
+  db.all(
+    "SELECT id, username, full_name, avatar, role, status, can_post, created_at FROM users ORDER BY created_at DESC",
+    (err, users) => {
+      if (err) {
+        console.error(err);
+        users = [];
+      }
+
+      // Get categories for navigation
+      getCategories((err, categories) => {
+        if (err) {
+          console.error(err);
+          categories = [];
+        }
+        res.send(generateAdminUsersPage(users, req.session, categories));
+      });
+    }
+  );
+});
+
+// Admin Announcement Tab
+app.get("/admin/announcement", requireAdmin, (req, res) => {
   db.get(
     "SELECT value FROM settings WHERE key = 'announcement'",
     (err, result) => {
@@ -687,11 +716,55 @@ app.get("/admin", requireAdmin, (req, res) => {
           categories = [];
         }
         res.send(
-          generateAdminPage(result ? result.value : "", req.session, categories)
+          generateAdminAnnouncementPage(
+            result ? result.value : "",
+            req.session,
+            categories
+          )
         );
       });
     }
   );
+});
+
+// Admin Deleted Files Tab
+app.get("/admin/deleted", requireAdmin, (req, res) => {
+  try {
+    const deletedFiles = fs
+      .readdirSync(deletedDir)
+      .map((fileName) => {
+        const filePath = path.join(deletedDir, fileName);
+        const stats = fs.statSync(filePath);
+
+        // Parse filename to extract info
+        const parts = fileName.split("_");
+        const timestamp = parts[0];
+        const postIdPart = parts[1] || "";
+        const originalName = parts.slice(2).join("_") || fileName;
+
+        return {
+          fileName: fileName,
+          originalName: originalName,
+          timestamp: timestamp,
+          postId: postIdPart.replace("postId-", ""),
+          size: stats.size,
+          deletedAt: stats.ctime,
+        };
+      })
+      .sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+
+    // Get categories for navigation
+    getCategories((err, categories) => {
+      if (err) {
+        console.error(err);
+        categories = [];
+      }
+      res.send(generateAdminDeletedPage(deletedFiles, req.session, categories));
+    });
+  } catch (error) {
+    console.error("Error reading deleted files:", error);
+    res.status(500).send("Lỗi khi đọc thư mục file đã xóa");
+  }
 });
 
 // Cập nhật thông báo admin
@@ -706,7 +779,7 @@ app.post("/admin/announcement", requireAdmin, (req, res) => {
         console.error(err);
         return res.status(500).send("Lỗi khi cập nhật thông báo!");
       }
-      res.redirect("/admin");
+      res.redirect("/admin/announcement");
     }
   );
 });
@@ -1051,112 +1124,6 @@ app.post("/delete/:id", requireAuth, (req, res) => {
   });
 });
 
-// Deleted files management route
-app.get("/admin/deleted", requireAdmin, (req, res) => {
-  try {
-    const deletedFiles = fs
-      .readdirSync(deletedDir)
-      .map((fileName) => {
-        const filePath = path.join(deletedDir, fileName);
-        const stats = fs.statSync(filePath);
-
-        // Parse filename to extract info
-        const parts = fileName.split("_");
-        const timestamp = parts[0];
-        const postIdPart = parts[1] || "";
-        const originalName = parts.slice(2).join("_") || fileName;
-
-        return {
-          fileName: fileName,
-          originalName: originalName,
-          timestamp: timestamp,
-          postId: postIdPart.replace("postId-", ""),
-          size: stats.size,
-          deletedAt: stats.ctime,
-        };
-      })
-      .sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
-
-    res.send(`
-      <!DOCTYPE html>
-      <html lang="vi">
-      <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Quản lý file đã xóa - BIDV Intranet Portal</title>
-          <link rel="stylesheet" href="/styles.css">
-      </head>
-      <body>
-          <div class="container">
-              <div class="page-header">
-                  <h2>Quản lý file đã xóa</h2>
-                  <a href="/admin" class="btn btn-secondary">Quay lại Admin</a>
-              </div>
-
-              <div class="deleted-files-table">
-                  <table class="data-table">
-                      <thead>
-                          <tr>
-                              <th>Tên file gốc</th>
-                              <th>Post ID</th>
-                              <th>Kích thước</th>
-                              <th>Ngày xóa</th>
-                              <th>Thao tác</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          ${deletedFiles
-                            .map(
-                              (file) => `
-                              <tr>
-                                  <td>${file.originalName}</td>
-                                  <td>${file.postId}</td>
-                                  <td>${(file.size / 1024 / 1024).toFixed(
-                                    2
-                                  )} MB</td>
-                                  <td>${moment(file.deletedAt).format(
-                                    "DD/MM/YYYY HH:mm"
-                                  )}</td>
-                                  <td>
-                                      <a href="/admin/deleted/download/${
-                                        file.fileName
-                                      }" class="btn btn-sm btn-download">Tải về</a>
-                                      <button onclick="permanentDelete('${
-                                        file.fileName
-                                      }')" class="btn btn-sm btn-danger">Xóa vĩnh viễn</button>
-                                  </td>
-                              </tr>
-                          `
-                            )
-                            .join("")}
-                      </tbody>
-                  </table>
-
-                  ${
-                    deletedFiles.length === 0
-                      ? '<p style="text-align: center; color: #666; margin-top: 40px;">Không có file nào đã bị xóa.</p>'
-                      : ""
-                  }
-              </div>
-          </div>
-
-          <script>
-              function permanentDelete(fileName) {
-                  if (confirm('Bạn có chắc muốn xóa vĩnh viễn file này? Hành động này không thể hoàn tác!')) {
-                      fetch('/admin/deleted/permanent/' + encodeURIComponent(fileName), { method: 'DELETE' })
-                          .then(() => location.reload());
-                  }
-              }
-          </script>
-      </body>
-      </html>
-    `);
-  } catch (error) {
-    console.error("Error reading deleted files:", error);
-    res.status(500).send("Lỗi khi đọc thư mục file đã xóa");
-  }
-});
-
 // Download deleted file
 app.get("/admin/deleted/download/:fileName", requireAdmin, (req, res) => {
   const fileName = req.params.fileName;
@@ -1192,28 +1159,6 @@ app.delete("/admin/deleted/permanent/:fileName", requireAdmin, (req, res) => {
   }
 });
 
-// User management routes
-app.get("/users", requireAdmin, (req, res) => {
-  db.all(
-    "SELECT id, username, full_name, avatar, role, status, can_post, created_at FROM users ORDER BY created_at DESC",
-    (err, users) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send("Lỗi database");
-      }
-
-      // Get categories for navigation
-      getCategories((err, categories) => {
-        if (err) {
-          console.error(err);
-          categories = [];
-        }
-        res.send(generateUsersPage(users, req.session, categories));
-      });
-    }
-  );
-});
-
 app.post("/users/add", requireAdmin, (req, res) => {
   const { username, password, full_name, role, can_post } = req.body;
 
@@ -1231,7 +1176,7 @@ app.post("/users/add", requireAdmin, (req, res) => {
         console.error(err);
         return res.status(500).send("Lỗi khi tạo user!");
       }
-      res.redirect("/users");
+      res.redirect("/admin/users");
     }
   );
 });
@@ -1254,7 +1199,7 @@ app.post("/users/toggle/:id", requireAdmin, (req, res) => {
           console.error(err);
           return res.status(500).send("Lỗi khi cập nhật trạng thái!");
         }
-        res.redirect("/users");
+        res.redirect("/admin/users");
       }
     );
   });

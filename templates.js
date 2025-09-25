@@ -322,10 +322,7 @@ function generateNavigation(session, currentPage = "", categories = []) {
               ? `
             <a href="/admin" class="nav-link ${
               currentPage === "admin" ? "active" : ""
-            }">⚙️ Cấu hình</a>
-            <a href="/users" class="nav-link ${
-              currentPage === "users" ? "active" : ""
-            }">👥 Người dùng</a>
+            }">⚙️ Quản trị</a>
           `
               : ""
           }
@@ -415,13 +412,7 @@ function generateNavigation(session, currentPage = "", categories = []) {
               currentPage === "admin" ? "active" : ""
             }">
               <span class="mobile-nav-icon">⚙️</span>
-              Cấu hình
-            </a>
-            <a href="/users" class="mobile-nav-link ${
-              currentPage === "users" ? "active" : ""
-            }">
-              <span class="mobile-nav-icon">👥</span>
-              Người dùng
+              Quản trị
             </a>
             `
                 : ""
@@ -825,207 +816,6 @@ function generateUploadPage(session, categories = []) {
             input.dispatchEvent(new Event('change'));
         }
     </script>
-</body>
-</html>
-  `;
-}
-
-// Admin Page Template
-function generateAdminPage(announcement, session, categories = []) {
-  return `
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản trị - BIDV Intranet Portal</title>
-    <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-    ${generateNavigation(session, "admin", categories)}
-
-    <div class="container">
-        <main class="normal-main-content">
-            <div class="page-header">
-                <h2>Quản trị hệ thống</h2>
-                <div class="page-actions">
-                    <a href="/admin/deleted" class="btn btn-info">🗑️ Quản lý file đã xóa</a>
-                </div>
-            </div>
-
-            <div class="admin-section">
-                <h3>Cấu hình thông báo</h3>
-                <p>Thông báo này sẽ hiển thị ở đầu trang chủ cho tất cả người dùng.</p>
-
-                <form action="/admin/announcement" method="POST" class="admin-form">
-                    <div class="form-group">
-                        <label for="announcement">Nội dung thông báo</label>
-                        <textarea id="announcement" name="announcement" rows="4"
-                                  placeholder="Nhập thông báo quan trọng...">${announcement}</textarea>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">💾 Lưu thông báo</button>
-                    </div>
-                </form>
-            </div>
-
-            <div class="system-info">
-                <h3>Thông tin hệ thống</h3>
-                <table class="info-table">
-                    <tr><td>Database:</td><td>SQLite (intranet.db)</td></tr>
-                    <tr><td>Upload folder:</td><td>uploads/</td></tr>
-                    <tr><td>Giới hạn file:</td><td>50MB</td></tr>
-                    <tr><td>Server:</td><td>Node.js + Express</td></tr>
-                </table>
-            </div>
-        </main>
-    </div>
-
-    ${generateFooter()}
-</body>
-</html>
-  `;
-}
-
-// Users Management Page Template
-function generateUsersPage(users, session, categories = []) {
-  return `
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý người dùng - BIDV Intranet Portal</title>
-    <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-    ${generateNavigation(session, "users", categories)}
-
-    <div class="container">
-        <main class="users-main-content">
-            <div class="page-header">
-                <h2>Quản lý người dùng</h2>
-                <div class="page-actions">
-                    <button onclick="showAddUserForm()" class="btn btn-primary">➕ Thêm người dùng</button>
-                </div>
-            </div>
-
-            <!-- Add User Form (Hidden by default) -->
-            <div id="addUserForm" class="add-user-form" style="display: none;">
-                <h3>Thêm người dùng mới</h3>
-                <form action="/users/add" method="POST">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="username">Tên đăng nhập *</label>
-                            <input type="text" id="username" name="username" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="password">Mật khẩu *</label>
-                            <input type="password" id="password" name="password" required>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="full_name">Họ và tên *</label>
-                            <input type="text" id="full_name" name="full_name" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="role">Vai trò</label>
-                            <select id="role" name="role">
-                                <option value="user">Người dùng</option>
-                                <option value="admin">Quản trị viên</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" name="can_post" value="1" checked>
-                            Được phép đăng tài liệu
-                        </label>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">✅ Tạo người dùng</button>
-                        <button type="button" onclick="hideAddUserForm()" class="btn btn-secondary">❌ Hủy</button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Users Table -->
-            <div class="users-table">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Tên đăng nhập</th>
-                            <th>Họ và tên</th>
-                            <th>Vai trò</th>
-                            <th>Trạng thái</th>
-                            <th>Quyền đăng bài</th>
-                            <th>Ngày tạo</th>
-                            <th>Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${users
-                          .map(
-                            (user) => `
-                        <tr>
-                            <td>${user.id}</td>
-                            <td>${user.username}</td>
-                            <td>${user.full_name}</td>
-                            <td><span class="role-badge ${user.role}">${
-                              user.role === "admin"
-                                ? "Quản trị viên"
-                                : "Người dùng"
-                            }</span></td>
-                            <td><span class="status-badge ${user.status}">${
-                              user.status === "active"
-                                ? "Hoạt động"
-                                : "Tạm khóa"
-                            }</span></td>
-                            <td>${user.can_post ? "Có" : "Không"}</td>
-                            <td>${moment(user.created_at).format(
-                              "DD/MM/YYYY"
-                            )}</td>
-                            <td>
-                                <form action="/users/toggle/${
-                                  user.id
-                                }" method="POST" style="display: inline;">
-                                    <button type="submit" class="btn btn-sm ${
-                                      user.status === "active"
-                                        ? "btn-warning"
-                                        : "btn-success"
-                                    }">
-                                        ${
-                                          user.status === "active"
-                                            ? "🔒 Khóa"
-                                            : "🔓 Mở khóa"
-                                        }
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        `
-                          )
-                          .join("")}
-                    </tbody>
-                </table>
-            </div>
-        </main>
-    </div>
-
-    <script>
-        function showAddUserForm() {
-            document.getElementById('addUserForm').style.display = 'block';
-        }
-
-        function hideAddUserForm() {
-            document.getElementById('addUserForm').style.display = 'none';
-        }
-    </script>
-
-    ${generateFooter()}
 </body>
 </html>
   `;
@@ -1551,12 +1341,308 @@ function generatePostDetailPage(post, session, categories = []) {
   `;
 }
 
+// Reusable Admin Tab Structure
+function generateAdminTabPage(
+  title,
+  activeTab,
+  tabContent,
+  session,
+  categories = [],
+  additionalScripts = ""
+) {
+  const tabs = [
+    { key: "users", label: "👥 Người dùng", url: "/admin/users" },
+    { key: "announcement", label: "📢 Thông báo", url: "/admin/announcement" },
+    { key: "deleted", label: "🗑️ File đã xóa", url: "/admin/deleted" },
+  ];
+
+  const tabButtons = tabs
+    .map(
+      (tab) =>
+        `<a href="${tab.url}" class="tab-button ${
+          tab.key === activeTab ? "active" : ""
+        }">${tab.label}</a>`
+    )
+    .join("");
+
+  return `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title} - BIDV Intranet Portal</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    ${generateNavigation(session, "admin", categories)}
+
+    <div class="container">
+        <main class="normal-main-content">
+            <div class="page-header">
+                <h2>Quản trị hệ thống</h2>
+            </div>
+
+            <!-- Admin Tabs -->
+            <div class="admin-tabs">
+                <div class="tab-buttons">
+                    ${tabButtons}
+                </div>
+
+                <!-- Tab Content -->
+                <div class="tab-content active">
+                    ${tabContent}
+                </div>
+            </div>
+        </main>
+    </div>
+
+    ${additionalScripts}
+
+    ${generateFooter()}
+</body>
+</html>
+  `;
+}
+
+// Admin Users Page Template
+function generateAdminUsersPage(users, session, categories = []) {
+  const tabContent = `
+    <div class="tab-header">
+        <h3>Quản lý người dùng</h3>
+        <button onclick="showAddUserForm()" class="btn btn-primary">➕ Thêm người dùng</button>
+    </div>
+
+    <!-- Add User Form (Hidden by default) -->
+    <div id="addUserForm" class="add-user-form" style="display: none;">
+        <h4>Thêm người dùng mới</h4>
+        <form action="/users/add" method="POST">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="username">Tên đăng nhập *</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Mật khẩu *</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="full_name">Họ và tên *</label>
+                    <input type="text" id="full_name" name="full_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="role">Vai trò</label>
+                    <select id="role" name="role">
+                        <option value="user">Người dùng</option>
+                        <option value="admin">Quản trị viên</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="can_post" value="1" checked>
+                    Được phép đăng tài liệu
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">✅ Tạo người dùng</button>
+                <button type="button" onclick="hideAddUserForm()" class="btn btn-secondary">❌ Hủy</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Users Table -->
+    <div class="users-table">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Tên đăng nhập</th>
+                    <th>Họ và tên</th>
+                    <th>Vai trò</th>
+                    <th>Trạng thái</th>
+                    <th>Quyền đăng bài</th>
+                    <th>Ngày tạo</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${users
+                  .map(
+                    (user) => `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>${user.username}</td>
+                    <td>${user.full_name}</td>
+                    <td><span class="role-badge ${user.role}">${
+                      user.role === "admin" ? "Quản trị viên" : "Người dùng"
+                    }</span></td>
+                    <td><span class="status-badge ${user.status}">${
+                      user.status === "active" ? "Hoạt động" : "Tạm khóa"
+                    }</span></td>
+                    <td>${user.can_post ? "Có" : "Không"}</td>
+                    <td>${moment(user.created_at).format("DD/MM/YYYY")}</td>
+                    <td>
+                        <form action="/users/toggle/${
+                          user.id
+                        }" method="POST" style="display: inline;">
+                            <button type="submit" class="btn btn-sm ${
+                              user.status === "active"
+                                ? "btn-warning"
+                                : "btn-success"
+                            }">
+                                ${
+                                  user.status === "active"
+                                    ? "🔒 Khóa"
+                                    : "🔓 Mở khóa"
+                                }
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                `
+                  )
+                  .join("")}
+            </tbody>
+        </table>
+    </div>
+  `;
+
+  const scripts = `
+    <script>
+        function showAddUserForm() {
+            document.getElementById('addUserForm').style.display = 'block';
+        }
+
+        function hideAddUserForm() {
+            document.getElementById('addUserForm').style.display = 'none';
+        }
+    </script>
+  `;
+
+  return generateAdminTabPage(
+    "Quản lý người dùng",
+    "users",
+    tabContent,
+    session,
+    categories,
+    scripts
+  );
+}
+
+// Admin Announcement Page Template
+function generateAdminAnnouncementPage(announcement, session, categories = []) {
+  const tabContent = `
+    <div class="tab-header">
+        <h3>Cấu hình thông báo</h3>
+        <p>Thông báo này sẽ hiển thị ở đầu trang chủ cho tất cả người dùng.</p>
+    </div>
+
+    <form action="/admin/announcement" method="POST" class="admin-form">
+        <div class="form-group">
+            <label for="announcement">Nội dung thông báo</label>
+            <textarea id="announcement" name="announcement" rows="4"
+                      placeholder="Nhập thông báo quan trọng...">${announcement}</textarea>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Lưu thông báo</button>
+        </div>
+    </form>
+  `;
+
+  return generateAdminTabPage(
+    "Cấu hình thông báo",
+    "announcement",
+    tabContent,
+    session,
+    categories
+  );
+}
+
+// Admin Deleted Files Page Template
+function generateAdminDeletedPage(deletedFiles, session, categories = []) {
+  const tabContent = `
+    <div class="tab-header">
+        <h3>Quản lý file đã xóa</h3>
+        <p>Các file đã bị xóa sẽ được lưu trữ tại đây để có thể khôi phục nếu cần.</p>
+    </div>
+
+    <div class="deleted-files-table">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tên file gốc</th>
+                    <th>Post ID</th>
+                    <th>Kích thước</th>
+                    <th>Ngày xóa</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${deletedFiles
+                  .map(
+                    (file) => `
+                <tr>
+                    <td>${file.originalName}</td>
+                    <td>${file.postId}</td>
+                    <td>${(file.size / 1024 / 1024).toFixed(2)} MB</td>
+                    <td>${moment(file.deletedAt).format(
+                      "DD/MM/YYYY HH:mm"
+                    )}</td>
+                    <td>
+                        <a href="/admin/deleted/download/${
+                          file.fileName
+                        }" class="btn btn-sm btn-download">Tải về</a>
+                        <button onclick="permanentDelete('${
+                          file.fileName
+                        }')" class="btn btn-sm btn-danger">Xóa vĩnh viễn</button>
+                    </td>
+                </tr>
+                `
+                  )
+                  .join("")}
+            </tbody>
+        </table>
+
+        ${
+          deletedFiles.length === 0
+            ? '<p style="text-align: center; color: #666; margin-top: 40px;">Không có file nào đã bị xóa.</p>'
+            : ""
+        }
+    </div>
+  `;
+
+  const scripts = `
+    <script>
+        function permanentDelete(fileName) {
+            if (confirm('Bạn có chắc muốn xóa vĩnh viễn file này? Hành động này không thể hoàn tác!')) {
+                fetch('/admin/deleted/permanent/' + encodeURIComponent(fileName), { method: 'DELETE' })
+                    .then(() => location.reload());
+            }
+        }
+    </script>
+  `;
+
+  return generateAdminTabPage(
+    "Quản lý file đã xóa",
+    "deleted",
+    tabContent,
+    session,
+    categories,
+    scripts
+  );
+}
+
 module.exports = {
   generateLoginPage,
   generateHomePage,
   generateUploadPage,
-  generateAdminPage,
-  generateUsersPage,
+  generateAdminUsersPage,
+  generateAdminAnnouncementPage,
+  generateAdminDeletedPage,
   generateEditPage,
   generateHistoryPage,
   generateNoPermissionPage,

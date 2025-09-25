@@ -1193,6 +1193,125 @@ body {
   margin-bottom: 20px;
 }
 
+/* Admin Tabs */
+.admin-tabs {
+  background: var(--bg-white);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px var(--shadow-light);
+  overflow: hidden;
+}
+
+.tab-buttons {
+  display: flex;
+  background: var(--bg-light);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.tab-button {
+  flex: 1;
+  padding: 15px 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  border-bottom: 3px solid transparent;
+  text-decoration: none;
+  display: block;
+  text-align: center;
+}
+
+.tab-button:hover {
+  background: var(--bg-white);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.tab-button.active {
+  background: var(--bg-white);
+  color: var(--bidv-green);
+  border-bottom-color: var(--bidv-green);
+  font-weight: 600;
+}
+
+.tab-content {
+  display: none;
+  padding: 30px;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.tab-header {
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.tab-header h3 {
+  color: var(--text-dark);
+  margin-bottom: 8px;
+}
+
+.tab-header p {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.tab-header .btn {
+  float: right;
+  margin-top: -5px;
+}
+
+/* Add User Form in Tab */
+.add-user-form {
+  background: var(--bg-light);
+  padding: 20px;
+  border-radius: 6px;
+  margin-bottom: 25px;
+  border: 1px solid var(--border-light);
+}
+
+.add-user-form h4 {
+  color: var(--text-dark);
+  margin-bottom: 15px;
+}
+
+/* Users Table in Tab */
+.users-table {
+  overflow-x: auto;
+}
+
+.users-table .data-table {
+  margin: 0;
+}
+
+/* Responsive Tab Buttons */
+@media (max-width: 768px) {
+  .tab-buttons {
+    flex-direction: column;
+  }
+
+  .tab-button {
+    border-bottom: 1px solid var(--border-light);
+    border-right: none;
+  }
+
+  .tab-button.active {
+    border-bottom-color: var(--border-light);
+    border-left: 3px solid var(--bidv-green);
+  }
+
+  .tab-header .btn {
+    float: none;
+    margin-top: 10px;
+    width: 100%;
+  }
+}
+
 /* Post Detail Page Styles */
 .post-detail-main {
   background: var(--bg-white);
