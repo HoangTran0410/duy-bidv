@@ -7,8 +7,6 @@ const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 const fs = require("fs");
 const moment = require("moment");
-const XLSX = require("xlsx");
-const mammoth = require("mammoth");
 const { marked } = require("marked");
 const {
   generateLoginPage,
@@ -26,15 +24,6 @@ const {
 function loadPostFiles(postId, callback) {
   db.all(
     "SELECT * FROM post_files WHERE post_id = ? ORDER BY file_order, created_at",
-    [postId],
-    callback
-  );
-}
-
-// Helper function to get first Excel file for a post (for preview)
-function getFirstExcelFile(postId, callback) {
-  db.get(
-    "SELECT * FROM post_files WHERE post_id = ? AND (file_name LIKE '%.xlsx' OR file_name LIKE '%.xls') ORDER BY file_order, created_at LIMIT 1",
     [postId],
     callback
   );
@@ -361,6 +350,55 @@ function renderMarkdown(markdownText) {
   }
 }
 
+// Helper function to highlight search terms and extract context
+function highlightSearchTerms(text, searchTerm, maxLength = 200) {
+  if (!text || !searchTerm) return text;
+
+  // Clean search term - remove special regex characters
+  const cleanSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(${cleanSearchTerm})`, "gi");
+
+  // Find all matches and their positions
+  const matches = [];
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    matches.push({
+      index: match.index,
+      length: match[0].length,
+      text: match[0],
+    });
+  }
+
+  if (matches.length === 0) {
+    // No matches found, return truncated text
+    return text.length > maxLength
+      ? text.substring(0, maxLength) + "..."
+      : text;
+  }
+
+  // Get the first match and extract context around it
+  const firstMatch = matches[0];
+  const contextStart = Math.max(
+    0,
+    firstMatch.index - Math.floor(maxLength / 2)
+  );
+  const contextEnd = Math.min(text.length, contextStart + maxLength);
+
+  let contextText = text.substring(contextStart, contextEnd);
+
+  // Add ellipsis if we're not at the beginning/end
+  if (contextStart > 0) contextText = "..." + contextText;
+  if (contextEnd < text.length) contextText = contextText + "...";
+
+  // Highlight all search terms in the context
+  const highlightedText = contextText.replace(
+    regex,
+    '<mark class="search-highlight">$1</mark>'
+  );
+
+  return highlightedText;
+}
+
 // Authentication middleware
 function requireAuth(req, res, next) {
   if (req.session && req.session.userId) {
@@ -512,9 +550,7 @@ app.get("/", requireAuth, (req, res) => {
                 post.formatted_date = moment(post.created_at).format(
                   "DD/MM/YYYY HH:mm"
                 );
-                post.file_size_mb = post.file_size
-                  ? (post.file_size / (1024 * 1024)).toFixed(2)
-                  : null;
+                // Remove file_size_mb since it's no longer in posts table
                 post.content_html = renderMarkdown(post.content);
               });
 
@@ -701,13 +737,14 @@ app.get("/search", requireAuth, (req, res) => {
       const postsPerPage = 5;
       const offset = (currentPage - 1) * postsPerPage;
 
-      // Count total search results
+      // Count total search results - search in posts and post_files (case-insensitive)
       const countQuery = `
-        SELECT COUNT(*) as total
+        SELECT COUNT(DISTINCT p.id) as total
         FROM posts p
         LEFT JOIN users u ON p.user_id = u.id
         LEFT JOIN categories c ON p.category_id = c.id
-        WHERE p.title LIKE ? OR p.content LIKE ? OR p.file_name LIKE ?
+        LEFT JOIN post_files pf ON p.id = pf.post_id
+        WHERE p.title LIKE ? COLLATE NOCASE OR p.content LIKE ? COLLATE NOCASE OR pf.file_name LIKE ? COLLATE NOCASE
       `;
       const searchPattern = `%${searchTerm}%`;
 
@@ -722,14 +759,15 @@ app.get("/search", requireAuth, (req, res) => {
 
           const totalPosts = countResult.total;
 
-          // Search query with pagination
+          // Search query with pagination - search in posts and post_files (case-insensitive)
           const searchQuery = `
-          SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
+          SELECT DISTINCT p.*, u.full_name as author_name, u.avatar as author_avatar,
                  c.name as category_name, c.icon as category_icon
           FROM posts p
           LEFT JOIN users u ON p.user_id = u.id
           LEFT JOIN categories c ON p.category_id = c.id
-          WHERE p.title LIKE ? OR p.content LIKE ? OR p.file_name LIKE ?
+          LEFT JOIN post_files pf ON p.id = pf.post_id
+          WHERE p.title LIKE ? COLLATE NOCASE OR p.content LIKE ? COLLATE NOCASE OR pf.file_name LIKE ? COLLATE NOCASE
           ORDER BY p.created_at DESC
           LIMIT ? OFFSET ?
         `;
@@ -743,15 +781,30 @@ app.get("/search", requireAuth, (req, res) => {
                 return res.status(500).send("Lỗi database");
               }
 
-              // Format posts và render markdown
+              // Format posts và render markdown with search highlighting
               posts.forEach((post) => {
                 post.formatted_date = moment(post.created_at).format(
                   "DD/MM/YYYY HH:mm"
                 );
-                post.file_size_mb = post.file_size
-                  ? (post.file_size / (1024 * 1024)).toFixed(2)
-                  : null;
-                post.content_html = renderMarkdown(post.content);
+
+                // Highlight search terms in title
+                post.highlighted_title = highlightSearchTerms(
+                  post.title,
+                  searchTerm,
+                  100
+                );
+
+                // Highlight search terms in content and render markdown
+                if (post.content) {
+                  const highlightedContent = highlightSearchTerms(
+                    post.content,
+                    searchTerm,
+                    300
+                  );
+                  post.content_html = renderMarkdown(highlightedContent);
+                } else {
+                  post.content_html = "";
+                }
               });
 
               res.send(
@@ -842,178 +895,6 @@ app.get("/post/:id", requireAuth, (req, res) => {
           });
         }
       );
-    }
-  );
-});
-
-// Get Excel file info and first chunk for preview
-app.get("/preview/excel/:id", requireAuth, (req, res) => {
-  const postId = req.params.id;
-  const rowsPerChunk = 50; // Chỉ load 50 rows đầu tiên
-
-  getFirstExcelFile(postId, (err, file) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send("Lỗi database");
-    }
-
-    if (!file || !file.file_path) {
-      return res.status(404).send("File Excel không tồn tại!");
-    }
-
-    const filePath = path.join(__dirname, file.file_path);
-    if (fs.existsSync(filePath)) {
-      try {
-        const workbook = XLSX.readFile(filePath);
-        const sheetNames = workbook.SheetNames;
-        const firstSheet = workbook.Sheets[sheetNames[0]];
-
-        // Chỉ lấy thông tin cơ bản và 50 rows đầu tiên
-        const range = XLSX.utils.decode_range(firstSheet["!ref"] || "A1:A1");
-        const totalRows = range.e.r + 1;
-        const totalCols = range.e.c + 1;
-
-        // Tạo range chỉ cho 50 rows đầu
-        const limitedRange = {
-          s: { r: 0, c: 0 },
-          e: { r: Math.min(rowsPerChunk - 1, totalRows - 1), c: totalCols - 1 },
-        };
-
-        const limitedSheet = {};
-        for (let row = limitedRange.s.r; row <= limitedRange.e.r; row++) {
-          for (let col = limitedRange.s.c; col <= limitedRange.e.c; col++) {
-            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-            if (firstSheet[cellAddress]) {
-              limitedSheet[cellAddress] = firstSheet[cellAddress];
-            }
-          }
-        }
-        limitedSheet["!ref"] = XLSX.utils.encode_range(limitedRange);
-
-        const htmlContent = XLSX.utils.sheet_to_html(limitedSheet);
-
-        res.json({
-          fileName: file.file_name,
-          sheets: sheetNames,
-          currentSheet: sheetNames[0],
-          totalRows: totalRows,
-          totalCols: totalCols,
-          loadedRows: Math.min(rowsPerChunk, totalRows),
-          hasMore: totalRows > rowsPerChunk,
-          data: htmlContent,
-        });
-      } catch (error) {
-        console.error("Excel preview error:", error);
-        res.status(500).send("Không thể preview file Excel");
-      }
-    } else {
-      res.status(404).send("File không tìm thấy!");
-    }
-  });
-});
-
-// Load more Excel data (pagination)
-app.get("/preview/excel/:id/load-more", requireAuth, (req, res) => {
-  const postId = req.params.id;
-  const startRow = parseInt(req.query.startRow) || 0;
-  const rowsPerChunk = parseInt(req.query.rows) || 50;
-  const sheetName = req.query.sheet || "";
-
-  getFirstExcelFile(postId, (err, file) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send("Lỗi database");
-    }
-
-    if (!file || !file.file_path) {
-      return res.status(404).send("File Excel không tồn tại!");
-    }
-
-    const filePath = path.join(__dirname, file.file_path);
-    if (fs.existsSync(filePath)) {
-      try {
-        const workbook = XLSX.readFile(filePath);
-        const targetSheet =
-          workbook.Sheets[sheetName] || workbook.Sheets[workbook.SheetNames[0]];
-
-        const range = XLSX.utils.decode_range(targetSheet["!ref"] || "A1:A1");
-        const totalRows = range.e.r + 1;
-        const totalCols = range.e.c + 1;
-
-        // Tạo range cho chunk tiếp theo
-        const chunkRange = {
-          s: { r: startRow, c: 0 },
-          e: {
-            r: Math.min(startRow + rowsPerChunk - 1, totalRows - 1),
-            c: totalCols - 1,
-          },
-        };
-
-        const chunkSheet = {};
-        for (let row = chunkRange.s.r; row <= chunkRange.e.r; row++) {
-          for (let col = chunkRange.s.c; col <= chunkRange.e.c; col++) {
-            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-            if (targetSheet[cellAddress]) {
-              chunkSheet[cellAddress] = targetSheet[cellAddress];
-            }
-          }
-        }
-        chunkSheet["!ref"] = XLSX.utils.encode_range(chunkRange);
-
-        const htmlContent = XLSX.utils.sheet_to_html(chunkSheet);
-
-        res.json({
-          startRow: startRow,
-          endRow: chunkRange.e.r,
-          totalRows: totalRows,
-          hasMore: chunkRange.e.r < totalRows - 1,
-          data: htmlContent,
-        });
-      } catch (error) {
-        console.error("Excel load more error:", error);
-        res.status(500).send("Không thể load thêm dữ liệu Excel");
-      }
-    } else {
-      res.status(404).send("File không tìm thấy!");
-    }
-  });
-});
-
-// Convert Word file to HTML for preview
-app.get("/preview/word/:id", requireAuth, (req, res) => {
-  const postId = req.params.id;
-
-  db.get(
-    "SELECT * FROM post_files WHERE post_id = ? AND (file_name LIKE '%.docx' OR file_name LIKE '%.doc') ORDER BY file_order, created_at LIMIT 1",
-    [postId],
-    (err, file) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send("Lỗi database");
-      }
-
-      if (!file || !file.file_path) {
-        return res.status(404).send("File Word không tồn tại!");
-      }
-
-      const filePath = path.join(__dirname, file.file_path);
-      if (fs.existsSync(filePath)) {
-        mammoth
-          .convertToHtml({ path: filePath })
-          .then((result) => {
-            res.json({
-              fileName: file.file_name,
-              html: result.value,
-              messages: result.messages,
-            });
-          })
-          .catch((error) => {
-            console.error("Word preview error:", error);
-            res.status(500).send("Không thể preview file Word");
-          });
-      } else {
-        res.status(404).send("File không tìm thấy!");
-      }
     }
   );
 });
@@ -1528,7 +1409,7 @@ app.post(
             console.error(err);
             return res.status(500).send("Lỗi khi cập nhật bài đăng!");
           }
-          res.redirect("/");
+          res.redirect("/post/" + postId);
         }
       );
     });

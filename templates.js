@@ -594,7 +594,9 @@ function generateHomePage(
                             }</div>
                             <div class="news-content">
                                 <a href="/post/${post.id}" class="news-title">${
-                              post.title
+                              searchTerm && post.highlighted_title
+                                ? post.highlighted_title
+                                : post.title
                             }</a>
                                 <hr/>
                                 <div class="news-meta">
@@ -611,30 +613,11 @@ function generateHomePage(
                                               } ${post.category_name}</span>`
                                             : ""
                                         }
-                                        ${
-                                          searchTerm && post.file_name
-                                            ? `<span class="news-file">📎 ${post.file_name}</span>`
-                                            : ""
-                                        }
                                     </div>
                                     ${
-                                      searchTerm && post.content
+                                      searchTerm && post.content_html
                                         ? `<div class="search-snippet markdown-content">
-                                            ${
-                                              post.content_html
-                                                ? post.content_html.length > 200
-                                                  ? post.content_html.substring(
-                                                      0,
-                                                      200
-                                                    ) + "..."
-                                                  : post.content_html
-                                                : post.content.length > 150
-                                                ? post.content.substring(
-                                                    0,
-                                                    150
-                                                  ) + "..."
-                                                : post.content
-                                            }
+                                            ${post.content_html}
                                           </div>`
                                         : ""
                                     }
@@ -1158,7 +1141,9 @@ function generateEditPage(post, session, categories = []) {
 
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">💾 Lưu thay đổi</button>
-                    <a href="/" class="btn btn-secondary">❌ Hủy</a>
+                    <a href="/post/${
+                      post.id
+                    }" class="btn btn-secondary">❌ Hủy</a>
                     <a href="/history/${
                       post.id
                     }" class="btn btn-info">📖 Xem lịch sử</a>
@@ -1402,7 +1387,7 @@ function generatePostDetailPage(post, session, categories = []) {
       case "webp":
         return `
           <div class="file-preview">
-            <img src="${fileUrl}" alt="${fileName}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <img src="${fileUrl}" alt="${fileName}" style="max-width: 400px; max-height: 600px; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
           </div>
         `;
 
@@ -1430,159 +1415,8 @@ function generatePostDetailPage(post, session, categories = []) {
           </div>
         `;
 
-      case "xlsx":
-      case "xls":
-        return `
-           <div class="file-preview">
-             <div class="excel-preview">
-               <div class="preview-header">
-                 <span class="file-icon">📊</span>
-                 <span class="file-name">${fileName}</span>
-                 <div class="preview-actions">
-                   <a href="${fileUrl}?download=true" class="btn btn-sm btn-download">⬇️ Tải về</a>
-                 </div>
-               </div>
-               <div id="excel-container-${postId}" class="excel-container">
-                 <div class="loading-message">Đang tải file Excel...</div>
-               </div>
-               <script>
-                 let excelData_${postId} = null;
-                 let currentStartRow_${postId} = 0;
-                 const ROWS_PER_CHUNK = 50;
-
-                 function loadExcelPreview_${postId}() {
-                   fetch('/preview/excel/${postId}')
-                     .then(response => response.json())
-                     .then(data => {
-                       excelData_${postId} = data;
-                       const container = document.getElementById('excel-container-${postId}');
-                       let html = '<div class="excel-info">';
-                       html += '<div class="excel-stats">📊 ' + data.totalRows + ' hàng × ' + data.totalCols + ' cột</div>';
-                       html += '<div class="excel-loaded">Hiển thị ' + data.loadedRows + ' hàng đầu tiên</div>';
-                       html += '</div>';
-
-                       if (data.sheets.length > 1) {
-                         html += '<div class="sheet-tabs">';
-                         data.sheets.forEach((sheetName, index) => {
-                           html += '<button class="sheet-tab' + (index === 0 ? ' active' : '') + '" onclick="switchSheet_${postId}(\\''+sheetName+'\\', this)">' + sheetName + '</button>';
-                         });
-                         html += '</div>';
-                       }
-
-                       html += '<div class="excel-table-container">';
-                       html += '<table class="excel-table">';
-                       html += data.data.replace(/<table[^>]*>/g, '').replace('</table>', '');
-                       html += '</table>';
-                       html += '</div>';
-
-                       if (data.hasMore) {
-                         html += '<div class="load-more-container">';
-                         html += '<button class="btn btn-primary load-more-btn" onclick="loadMoreRows_${postId}()">📄 Xem thêm ' + ROWS_PER_CHUNK + ' hàng</button>';
-                         html += '<div class="load-more-info">Còn ' + (data.totalRows - data.loadedRows) + ' hàng chưa hiển thị</div>';
-                         html += '</div>';
-                       }
-
-                       container.innerHTML = html;
-                     })
-                     .catch(error => {
-                       document.getElementById('excel-container-${postId}').innerHTML =
-                         '<div class="error-message">Không thể tải file Excel. <a href="${fileUrl}?download=true">⬇️ Tải về</a></div>';
-                     });
-                 }
-
-                 function loadMoreRows_${postId}() {
-                   if (!excelData_${postId}) return;
-
-                   const loadBtn = document.querySelector('#excel-container-${postId} .load-more-btn');
-                   const loadInfo = document.querySelector('#excel-container-${postId} .load-more-info');
-
-                   if (loadBtn) loadBtn.textContent = '⏳ Đang tải...';
-
-                   currentStartRow_${postId} += ROWS_PER_CHUNK;
-
-                   fetch('/preview/excel/${postId}/load-more?startRow=' + currentStartRow_${postId} + '&rows=' + ROWS_PER_CHUNK + '&sheet=' + encodeURIComponent(excelData_${postId}.currentSheet))
-                     .then(response => response.json())
-                     .then(data => {
-                       const table = document.querySelector('#excel-container-${postId} .excel-table');
-                       if (table && data.data) {
-                         // Thêm rows mới vào table
-                         const newRows = data.data.replace(/<table[^>]*>/g, '').replace('</table>', '');
-                         table.innerHTML += newRows;
-
-                         // Cập nhật thông tin
-                         const remainingRows = excelData_${postId}.totalRows - (currentStartRow_${postId} + ROWS_PER_CHUNK);
-                         if (loadInfo) {
-                           loadInfo.textContent = remainingRows > 0 ? 'Còn ' + remainingRows + ' hàng chưa hiển thị' : 'Đã hiển thị tất cả dữ liệu';
-                         }
-
-                         if (!data.hasMore) {
-                           loadBtn.style.display = 'none';
-                         } else {
-                           loadBtn.textContent = '📄 Xem thêm ' + ROWS_PER_CHUNK + ' hàng';
-                         }
-                       }
-                     })
-                     .catch(error => {
-                       console.error('Error loading more rows:', error);
-                       if (loadBtn) loadBtn.textContent = '❌ Lỗi tải dữ liệu';
-                     });
-                 }
-
-                 function switchSheet_${postId}(sheetName, button) {
-                   if (!excelData_${postId}) return;
-
-                   // Reset state
-                   currentStartRow_${postId} = 0;
-                   excelData_${postId}.currentSheet = sheetName;
-
-                   // Update active tab
-                   document.querySelectorAll('#excel-container-${postId} .sheet-tab').forEach(el => el.classList.remove('active'));
-                   button.classList.add('active');
-
-                   // Reload preview for new sheet
-                   document.getElementById('excel-container-${postId}').innerHTML = '<div class="loading-message">Đang chuyển sheet...</div>';
-                   loadExcelPreview_${postId}();
-                 }
-
-                 // Load initial preview
-                 loadExcelPreview_${postId}();
-               </script>
-             </div>
-           </div>
-         `;
-
-      case "docx":
-      case "doc":
-        return `
-           <div class="file-preview">
-             <div class="word-preview">
-               <div class="preview-header">
-                 <span class="file-icon">📄</span>
-                 <span class="file-name">${fileName}</span>
-                 <div class="preview-actions">
-                   <a href="${fileUrl}?download=true" class="btn btn-sm btn-download">⬇️ Tải về</a>
-                 </div>
-               </div>
-               <div id="word-container-${postId}" class="word-container">
-                 <div class="loading-message">Đang tải file Word...</div>
-               </div>
-               <script>
-                 fetch('/preview/word/${postId}')
-                   .then(response => response.json())
-                   .then(data => {
-                     const container = document.getElementById('word-container-${postId}');
-                     container.innerHTML = '<div class="word-content">' + data.html + '</div>';
-                   })
-                   .catch(error => {
-                     document.getElementById('word-container-${postId}').innerHTML =
-                       '<div class="error-message">Không thể tải file Word. <a href="${fileUrl}?download=true">⬇️ Tải về</a></div>';
-                   });
-               </script>
-             </div>
-           </div>
-         `;
-
       default:
+        return "";
         return `
           <div class="file-preview">
             <div class="file-download-only">
@@ -1613,12 +1447,6 @@ function generatePostDetailPage(post, session, categories = []) {
     <div class="container">
         <main class="post-detail-main">
             <div class="post-detail-header">
-                <div class="breadcrumb">
-                    <a href="/">Trang chủ</a> <span>›</span> <span>${
-                      post.title
-                    }</span>
-                </div>
-
                 <div class="post-detail-meta">
                     <div class="post-category">
                         <span class="category-icon">${
