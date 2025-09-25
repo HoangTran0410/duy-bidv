@@ -18,6 +18,7 @@ const {
   generateNoPermissionPage,
   generatePostDetailPage,
   generateAdminAnnouncementPage,
+  generateAdminBannersPage,
   generateAdminDeletedPage,
 } = require("./templates");
 
@@ -44,6 +45,7 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.static("public"));
+app.use("/uploads", express.static("uploads")); // Serve uploaded files
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -244,6 +246,21 @@ db.serialize(() => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         key TEXT UNIQUE NOT NULL,
         value TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+  // Table cho banners (banner quảng cáo)
+  db.run(`CREATE TABLE IF NOT EXISTS banners (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        image_path TEXT NOT NULL,
+        link_url TEXT,
+        note TEXT,
+        start_date DATETIME,
+        expired_date DATETIME,
+        is_active INTEGER DEFAULT 1,
+        display_order INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
@@ -499,76 +516,93 @@ app.get("/", requireAuth, (req, res) => {
             return res.status(500).send("Lỗi database");
           }
 
-          // Pagination settings
-          const postsPerPage = 5;
-          const offset = (currentPage - 1) * postsPerPage;
-
-          // Tạo count query để đếm tổng số posts
-          let countQuery = `SELECT COUNT(*) as total FROM posts p`;
-          let countParams = [];
-
-          if (selectedCategory) {
-            countQuery += " WHERE p.category_id = ?";
-            countParams.push(selectedCategory);
-          }
-
-          // Đếm tổng số posts trước
-          db.get(countQuery, countParams, (err, countResult) => {
-            if (err) {
-              console.error(err);
-              return res.status(500).send("Lỗi database");
-            }
-
-            const totalPosts = countResult.total;
-
-            // Tạo query cho posts với filter category và pagination
-            let postsQuery = `
-              SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
-                     c.name as category_name, c.icon as category_icon
-              FROM posts p
-              LEFT JOIN users u ON p.user_id = u.id
-              LEFT JOIN categories c ON p.category_id = c.id
-            `;
-            let queryParams = [];
-
-            if (selectedCategory) {
-              postsQuery += " WHERE p.category_id = ?";
-              queryParams.push(selectedCategory);
-            }
-
-            postsQuery += " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
-            queryParams.push(postsPerPage, offset);
-
-            // Lấy danh sách posts cho page hiện tại
-            db.all(postsQuery, queryParams, (err, posts) => {
+          // Lấy banners đang hoạt động
+          db.all(
+            `SELECT * FROM banners
+             WHERE is_active = 1
+             AND (start_date IS NULL OR datetime('now') >= datetime(start_date))
+             AND (expired_date IS NULL OR datetime('now') <= datetime(expired_date))
+             ORDER BY display_order ASC, created_at DESC`,
+            (err, banners) => {
               if (err) {
                 console.error(err);
-                return res.status(500).send("Lỗi database");
+                banners = [];
               }
 
-              // Format thời gian và render markdown
-              posts.forEach((post) => {
-                post.formatted_date = moment(post.created_at).format(
-                  "DD/MM/YYYY HH:mm"
-                );
-                // Remove file_size_mb since it's no longer in posts table
-                post.content_html = renderMarkdown(post.content);
-              });
+              // Pagination settings
+              const postsPerPage = 5;
+              const offset = (currentPage - 1) * postsPerPage;
 
-              res.send(
-                generateHomePage(
-                  posts,
-                  announcement ? announcement.value : "",
-                  req.session,
-                  categories,
-                  currentPage,
-                  selectedCategory,
-                  totalPosts,
-                  postsPerPage
-                )
-              );
-            });
-          });
+              // Tạo count query để đếm tổng số posts
+              let countQuery = `SELECT COUNT(*) as total FROM posts p`;
+              let countParams = [];
+
+              if (selectedCategory) {
+                countQuery += " WHERE p.category_id = ?";
+                countParams.push(selectedCategory);
+              }
+
+              // Đếm tổng số posts trước
+              db.get(countQuery, countParams, (err, countResult) => {
+                if (err) {
+                  console.error(err);
+                  return res.status(500).send("Lỗi database");
+                }
+
+                const totalPosts = countResult.total;
+
+                // Tạo query cho posts với filter category và pagination
+                let postsQuery = `
+                  SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
+                         c.name as category_name, c.icon as category_icon
+                  FROM posts p
+                  LEFT JOIN users u ON p.user_id = u.id
+                  LEFT JOIN categories c ON p.category_id = c.id
+                `;
+                let queryParams = [];
+
+                if (selectedCategory) {
+                  postsQuery += " WHERE p.category_id = ?";
+                  queryParams.push(selectedCategory);
+                }
+
+                postsQuery += " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
+                queryParams.push(postsPerPage, offset);
+
+                // Lấy danh sách posts cho page hiện tại
+                db.all(postsQuery, queryParams, (err, posts) => {
+                  if (err) {
+                    console.error(err);
+                    return res.status(500).send("Lỗi database");
+                  }
+
+                  // Format thời gian và render markdown
+                  posts.forEach((post) => {
+                    post.formatted_date = moment(post.created_at).format(
+                      "DD/MM/YYYY HH:mm"
+                    );
+                    // Remove file_size_mb since it's no longer in posts table
+                    post.content_html = renderMarkdown(post.content);
+                  });
+
+                  res.send(
+                    generateHomePage(
+                      posts,
+                      announcement ? announcement.value : "",
+                      req.session,
+                      categories,
+                      currentPage,
+                      selectedCategory,
+                      totalPosts,
+                      postsPerPage,
+                      null, // searchTerm
+                      banners
+                    )
+                  );
+                });
+              });
+            }
+          );
         }
       );
     }
@@ -767,6 +801,28 @@ app.get("/admin/deleted", requireAdmin, (req, res) => {
   }
 });
 
+// Admin Banners Tab
+app.get("/admin/banners", requireAdmin, (req, res) => {
+  db.all(
+    "SELECT * FROM banners ORDER BY display_order ASC, created_at DESC",
+    (err, banners) => {
+      if (err) {
+        console.error(err);
+        banners = [];
+      }
+
+      // Get categories for navigation
+      getCategories((err, categories) => {
+        if (err) {
+          console.error(err);
+          categories = [];
+        }
+        res.send(generateAdminBannersPage(banners, req.session, categories));
+      });
+    }
+  );
+});
+
 // Cập nhật thông báo admin
 app.post("/admin/announcement", requireAdmin, (req, res) => {
   const { announcement } = req.body;
@@ -782,6 +838,155 @@ app.post("/admin/announcement", requireAdmin, (req, res) => {
       res.redirect("/admin/announcement");
     }
   );
+});
+
+// Add banner
+app.post(
+  "/admin/banners/add",
+  requireAdmin,
+  upload.single("banner_image"),
+  (req, res) => {
+    const { title, link_url, note, start_date, expired_date, display_order } =
+      req.body;
+    const image_path = req.file ? req.file.path : null;
+
+    if (!title || !image_path) {
+      return res.status(400).send("Vui lòng điền đầy đủ thông tin bắt buộc!");
+    }
+
+    // Format dates properly for SQLite (preserve local time)
+    const formatDateForSQLite = (dateStr) => {
+      if (!dateStr) return null;
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return null;
+
+      // Format as YYYY-MM-DDTHH:mm in local time
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
+    db.run(
+      `INSERT INTO banners (title, image_path, link_url, note, start_date, expired_date, display_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        title,
+        image_path,
+        link_url || null,
+        note || null,
+        formatDateForSQLite(start_date),
+        formatDateForSQLite(expired_date),
+        display_order || 0,
+      ],
+      (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).send("Lỗi khi thêm banner!");
+        }
+        res.redirect("/admin/banners");
+      }
+    );
+  }
+);
+
+// Update banner
+app.post(
+  "/admin/banners/edit/:id",
+  requireAdmin,
+  upload.single("banner_image"),
+  (req, res) => {
+    const bannerId = req.params.id;
+    const {
+      title,
+      link_url,
+      note,
+      start_date,
+      expired_date,
+      display_order,
+      is_active,
+    } = req.body;
+    const image_path = req.file ? req.file.path : null;
+
+    if (!title) {
+      return res.status(400).send("Vui lòng điền đầy đủ thông tin bắt buộc!");
+    }
+
+    // Format dates properly for SQLite (preserve local time)
+    const formatDateForSQLite = (dateStr) => {
+      if (!dateStr) return null;
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return null;
+
+      // Format as YYYY-MM-DDTHH:mm in local time
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
+    let updateQuery, updateParams;
+
+    if (image_path) {
+      // Update with new image
+      updateQuery = `UPDATE banners SET title = ?, image_path = ?, link_url = ?, note = ?,
+                   start_date = ?, expired_date = ?, display_order = ?, is_active = ?,
+                   updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+      updateParams = [
+        title,
+        image_path,
+        link_url || null,
+        note || null,
+        formatDateForSQLite(start_date),
+        formatDateForSQLite(expired_date),
+        display_order || 0,
+        is_active ? 1 : 0,
+        bannerId,
+      ];
+    } else {
+      // Update without changing image
+      updateQuery = `UPDATE banners SET title = ?, link_url = ?, note = ?,
+                   start_date = ?, expired_date = ?, display_order = ?, is_active = ?,
+                   updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+      updateParams = [
+        title,
+        link_url || null,
+        note || null,
+        formatDateForSQLite(start_date),
+        formatDateForSQLite(expired_date),
+        display_order || 0,
+        is_active ? 1 : 0,
+        bannerId,
+      ];
+    }
+
+    db.run(updateQuery, updateParams, (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).send("Lỗi khi cập nhật banner!");
+      }
+      res.redirect("/admin/banners");
+    });
+  }
+);
+
+// Delete banner
+app.post("/admin/banners/delete/:id", requireAdmin, (req, res) => {
+  const bannerId = req.params.id;
+
+  db.run("DELETE FROM banners WHERE id = ?", [bannerId], (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send("Lỗi khi xóa banner!");
+    }
+    res.redirect("/admin/banners");
+  });
 });
 
 // Search posts

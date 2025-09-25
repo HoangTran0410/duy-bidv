@@ -493,7 +493,8 @@ function generateHomePage(
   selectedCategory = null,
   totalPosts = 0,
   postsPerPage = 3,
-  searchTerm = null
+  searchTerm = null,
+  banners = []
 ) {
   const totalPages = Math.ceil(totalPosts / postsPerPage);
   const displayPosts = posts; // Posts already paginated from server
@@ -525,6 +526,80 @@ function generateHomePage(
     <div class="container">
         <main class="main-content">
             <div class="content-left">
+                ${
+                  banners.length > 0
+                    ? `
+                <div class="banner-carousel">
+                    <div class="carousel-container">
+                        <div class="carousel-slides" id="bannerCarousel">
+                            ${banners
+                              .map(
+                                (banner, index) => `
+                                <div class="carousel-slide ${
+                                  index === 0 ? "active" : ""
+                                }">
+                                    ${
+                                      banner.link_url
+                                        ? `<a href="${banner.link_url}" target="_blank" class="banner-link">`
+                                        : ""
+                                    }
+                                         <img src="/${
+                                           banner.image_path
+                                         }" alt="${
+                                  banner.title
+                                }" class="banner-image"
+                                 onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4='; this.alt='Image not found';">
+                                        <div class="banner-overlay">
+                                            <div class="banner-title">${
+                                              banner.title
+                                            }</div>
+                                            ${
+                                              banner.note
+                                                ? `<div class="banner-note">${banner.note}</div>`
+                                                : ""
+                                            }
+                                            ${
+                                              banner.link_url
+                                                ? `<div class="banner-link-indicator">🔗</div>`
+                                                : ""
+                                            }
+                                        </div>
+                                    ${banner.link_url ? "</a>" : ""}
+                                </div>
+                            `
+                              )
+                              .join("")}
+                        </div>
+                        ${
+                          banners.length > 1
+                            ? `
+                        <div class="carousel-controls">
+                            <button class="carousel-prev" onclick="changeSlide(-1)">❮</button>
+                            <button class="carousel-next" onclick="changeSlide(1)">❯</button>
+                        </div>
+                        <div class="carousel-indicators">
+                            ${banners
+                              .map(
+                                (_, index) => `
+                                <button class="carousel-indicator ${
+                                  index === 0 ? "active" : ""
+                                }"
+                                        onclick="currentSlide(${
+                                          index + 1
+                                        })"></button>
+                            `
+                              )
+                              .join("")}
+                        </div>
+                        `
+                            : ""
+                        }
+                    </div>
+                </div>
+                `
+                    : ""
+                }
+
                 <div class="news-section">
                     <div class="section-header">
                         ${searchTerm ? "KẾT QUẢ TÌM KIẾM" : "THÔNG TIN NỔI BẬT"}
@@ -701,6 +776,47 @@ function generateHomePage(
                 fetch('/delete/' + id, { method: 'POST' })
                     .then(() => location.reload());
             }
+        }
+
+        // Banner carousel functionality
+        let currentSlideIndex = 0;
+        const totalSlides = ${banners.length};
+
+        function showSlide(index) {
+            const slides = document.querySelectorAll('.carousel-slide');
+            const indicators = document.querySelectorAll('.carousel-indicator');
+
+            slides.forEach(slide => slide.classList.remove('active'));
+            indicators.forEach(indicator => indicator.classList.remove('active'));
+
+            if (slides[index]) {
+                slides[index].classList.add('active');
+                if (indicators[index]) {
+                    indicators[index].classList.add('active');
+                }
+            }
+        }
+
+        function changeSlide(direction) {
+            currentSlideIndex += direction;
+            if (currentSlideIndex >= totalSlides) {
+                currentSlideIndex = 0;
+            } else if (currentSlideIndex < 0) {
+                currentSlideIndex = totalSlides - 1;
+            }
+            showSlide(currentSlideIndex);
+        }
+
+        function currentSlide(index) {
+            currentSlideIndex = index - 1;
+            showSlide(currentSlideIndex);
+        }
+
+        // Auto-advance carousel every 5 seconds
+        if (totalSlides > 1) {
+            setInterval(() => {
+                changeSlide(1);
+            }, 5000);
         }
     </script>
 </body>
@@ -1353,6 +1469,7 @@ function generateAdminTabPage(
   const tabs = [
     { key: "users", label: "👥 Người dùng", url: "/admin/users" },
     { key: "announcement", label: "📢 Thông báo", url: "/admin/announcement" },
+    { key: "banners", label: "🖼️ Banners", url: "/admin/banners" },
     { key: "deleted", label: "🗑️ File đã xóa", url: "/admin/deleted" },
   ];
 
@@ -1636,12 +1753,304 @@ function generateAdminDeletedPage(deletedFiles, session, categories = []) {
   );
 }
 
+// Admin Banners Page Template
+function generateAdminBannersPage(banners, session, categories = []) {
+  const tabContent = `
+    <div class="tab-header">
+        <h3>Quản lý banners</h3>
+        <button onclick="showAddBannerForm()" class="btn btn-primary">➕ Thêm banner</button>
+    </div>
+
+    <!-- Add Banner Form (Hidden by default) -->
+    <div id="addBannerForm" class="add-banner-form" style="display: none;">
+        <h4>Thêm banner mới</h4>
+        <form action="/admin/banners/add" method="POST" enctype="multipart/form-data">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="title">Tiêu đề banner *</label>
+                    <input type="text" id="title" name="title" required>
+                </div>
+                <div class="form-group">
+                    <label for="display_order">Thứ tự hiển thị</label>
+                    <input type="number" id="display_order" name="display_order" value="0" min="0">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="start_date">Ngày bắt đầu (tùy chọn)</label>
+                    <input type="datetime-local" id="start_date" name="start_date">
+                    <small>Để trống nếu muốn hiển thị ngay lập tức</small>
+                </div>
+                <div class="form-group">
+                    <label for="expired_date">Ngày kết thúc (tùy chọn)</label>
+                    <input type="datetime-local" id="expired_date" name="expired_date">
+                    <small>Để trống nếu muốn hiển thị vô thời hạn</small>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="link_url">Link (tùy chọn)</label>
+                <input type="url" id="link_url" name="link_url" placeholder="https://example.com">
+            </div>
+            <div class="form-group">
+                <label for="note">Ghi chú</label>
+                <textarea id="note" name="note" rows="2" placeholder="Ghi chú về banner..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="banner_image">Hình ảnh banner *</label>
+                <input type="file" id="banner_image" name="banner_image" accept="image/*" required>
+                <small>Chỉ chấp nhận file hình ảnh (JPG, PNG, GIF, WebP)</small>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">✅ Thêm banner</button>
+                <button type="button" onclick="hideAddBannerForm()" class="btn btn-secondary">❌ Hủy</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Banners Table -->
+    <div class="banners-table">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Hình ảnh</th>
+                    <th>Tiêu đề</th>
+                    <th>Link</th>
+                    <th>Thời gian</th>
+                    <th>Thứ tự</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${banners
+                  .map(
+                    (banner) => `
+                <tr>
+                    <td>${banner.id}</td>
+                    <td>
+                        <img src="/${banner.image_path}" alt="${banner.title}"
+                             style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px;"
+                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2RkZCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5OQTwvdGV4dD48L3N2Zz4='; this.alt='Image not found';">
+                    </td>
+                    <td>${banner.title}</td>
+                    <td>${
+                      banner.link_url
+                        ? `<a href="${banner.link_url}" target="_blank">🔗 Link</a>`
+                        : "Không có"
+                    }</td>
+                    <td>
+                        <small>
+                            Từ: ${
+                              banner.start_date
+                                ? (() => {
+                                    const date = new Date(banner.start_date);
+                                    if (isNaN(date.getTime()))
+                                      return "Invalid date";
+                                    return date.toLocaleString("vi-VN", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    });
+                                  })()
+                                : "Không có"
+                            }<br>
+                            Đến: ${
+                              banner.expired_date
+                                ? (() => {
+                                    const date = new Date(banner.expired_date);
+                                    if (isNaN(date.getTime()))
+                                      return "Invalid date";
+                                    return date.toLocaleString("vi-VN", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    });
+                                  })()
+                                : "Không có"
+                            }
+                        </small>
+                    </td>
+                    <td>${banner.display_order}</td>
+                    <td>
+                        <span class="status-badge ${
+                          banner.is_active ? "active" : "inactive"
+                        }">
+                            ${banner.is_active ? "Hoạt động" : "Tạm dừng"}
+                        </span>
+                    </td>
+                    <td>
+                        <button onclick="editBanner(${
+                          banner.id
+                        })" class="btn btn-sm btn-secondary">✏️ Sửa</button>
+                        <form action="/admin/banners/delete/${
+                          banner.id
+                        }" method="POST" style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('Bạn có chắc muốn xóa banner này?')">🗑️ Xóa</button>
+                        </form>
+                    </td>
+                </tr>
+                `
+                  )
+                  .join("")}
+            </tbody>
+        </table>
+
+        ${
+          banners.length === 0
+            ? '<p style="text-align: center; color: #666; margin-top: 40px;">Chưa có banner nào.</p>'
+            : ""
+        }
+    </div>
+
+    <!-- Edit Banner Modal -->
+    <div id="editBannerModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Chỉnh sửa banner</h4>
+                <button onclick="closeEditBannerModal()" class="modal-close">&times;</button>
+            </div>
+            <form id="editBannerForm" method="POST" enctype="multipart/form-data">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_title">Tiêu đề banner *</label>
+                        <input type="text" id="edit_title" name="title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_display_order">Thứ tự hiển thị</label>
+                        <input type="number" id="edit_display_order" name="display_order" min="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_start_date">Ngày bắt đầu (tùy chọn)</label>
+                        <input type="datetime-local" id="edit_start_date" name="start_date">
+                        <small>Để trống nếu muốn hiển thị ngay lập tức</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_expired_date">Ngày kết thúc (tùy chọn)</label>
+                        <input type="datetime-local" id="edit_expired_date" name="expired_date">
+                        <small>Để trống nếu muốn hiển thị vô thời hạn</small>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="edit_link_url">Link (tùy chọn)</label>
+                    <input type="url" id="edit_link_url" name="link_url" placeholder="https://example.com">
+                </div>
+                <div class="form-group">
+                    <label for="edit_note">Ghi chú</label>
+                    <textarea id="edit_note" name="note" rows="2" placeholder="Ghi chú về banner..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="edit_banner_image">Hình ảnh banner mới (để trống nếu không thay đổi)</label>
+                    <input type="file" id="edit_banner_image" name="banner_image" accept="image/*">
+                    <small>Chỉ chấp nhận file hình ảnh (JPG, PNG, GIF, WebP)</small>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="edit_is_active" name="is_active" value="1">
+                        Banner đang hoạt động
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">💾 Lưu thay đổi</button>
+                    <button type="button" onclick="closeEditBannerModal()" class="btn btn-secondary">❌ Hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+  `;
+
+  const scripts = `
+    <script>
+        function showAddBannerForm() {
+            document.getElementById('addBannerForm').style.display = 'block';
+        }
+
+        function hideAddBannerForm() {
+            document.getElementById('addBannerForm').style.display = 'none';
+        }
+
+        // Custom function to format date for datetime-local input
+        function formatDateForInput(dateString) {
+            if (!dateString) return '';
+
+            // Handle SQLite datetime format (YYYY-MM-DDTHH:mm or YYYY-MM-DDTHH:mm:ss)
+            let date;
+            if (dateString.includes('T')) {
+                // SQLite format: 2025-09-26T02:53 or 2025-09-26T02:53:00
+                date = new Date(dateString);
+            } else {
+                // Try other common formats
+                date = new Date(dateString);
+            }
+
+            if (isNaN(date.getTime())) return '';
+
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+
+            return year + '-' + month + '-' + day + 'T' + hours + ':' + minutes;
+        }
+
+        function editBanner(bannerId) {
+            // Find banner data
+            const banners = ${JSON.stringify(banners)};
+            const banner = banners.find(b => b.id == bannerId);
+
+            if (banner) {
+                document.getElementById('edit_title').value = banner.title;
+                document.getElementById('edit_link_url').value = banner.link_url || '';
+                document.getElementById('edit_note').value = banner.note || '';
+                document.getElementById('edit_start_date').value = formatDateForInput(banner.start_date);
+                document.getElementById('edit_expired_date').value = formatDateForInput(banner.expired_date);
+                document.getElementById('edit_display_order').value = banner.display_order;
+                document.getElementById('edit_is_active').checked = banner.is_active == 1;
+
+                document.getElementById('editBannerForm').action = '/admin/banners/edit/' + bannerId;
+                document.getElementById('editBannerModal').style.display = 'block';
+            }
+        }
+
+        function closeEditBannerModal() {
+            document.getElementById('editBannerModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editBannerModal');
+            if (event.target == modal) {
+                closeEditBannerModal();
+            }
+        }
+    </script>
+  `;
+
+  return generateAdminTabPage(
+    "Quản lý banners",
+    "banners",
+    tabContent,
+    session,
+    categories,
+    scripts
+  );
+}
+
 module.exports = {
   generateLoginPage,
   generateHomePage,
   generateUploadPage,
   generateAdminUsersPage,
   generateAdminAnnouncementPage,
+  generateAdminBannersPage,
   generateAdminDeletedPage,
   generateEditPage,
   generateHistoryPage,
