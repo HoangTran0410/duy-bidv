@@ -1446,40 +1446,106 @@ function generatePostDetailPage(post, session, categories = []) {
                  <div class="loading-message">Đang tải file Excel...</div>
                </div>
                <script>
-                 fetch('/preview/excel/${postId}')
-                   .then(response => response.json())
-                   .then(data => {
-                     const container = document.getElementById('excel-container-${postId}');
-                     let html = '<div class="excel-sheets">';
+                 let excelData_${postId} = null;
+                 let currentStartRow_${postId} = 0;
+                 const ROWS_PER_CHUNK = 50;
 
-                     if (data.sheets.length > 1) {
-                       html += '<div class="sheet-tabs">';
-                       data.sheets.forEach((sheetName, index) => {
-                         html += '<button class="sheet-tab' + (index === 0 ? ' active' : '') + '" onclick="showSheet_${postId}(\\''+sheetName+'\\', this)">' + sheetName + '</button>';
-                       });
+                 function loadExcelPreview_${postId}() {
+                   fetch('/preview/excel/${postId}')
+                     .then(response => response.json())
+                     .then(data => {
+                       excelData_${postId} = data;
+                       const container = document.getElementById('excel-container-${postId}');
+                       let html = '<div class="excel-info">';
+                       html += '<div class="excel-stats">📊 ' + data.totalRows + ' hàng × ' + data.totalCols + ' cột</div>';
+                       html += '<div class="excel-loaded">Hiển thị ' + data.loadedRows + ' hàng đầu tiên</div>';
                        html += '</div>';
-                     }
 
-                     data.sheets.forEach((sheetName, index) => {
-                       html += '<div class="sheet-content' + (index === 0 ? ' active' : '') + '" id="sheet_${postId}_' + sheetName + '">';
-                       html += data.data[sheetName];
+                       if (data.sheets.length > 1) {
+                         html += '<div class="sheet-tabs">';
+                         data.sheets.forEach((sheetName, index) => {
+                           html += '<button class="sheet-tab' + (index === 0 ? ' active' : '') + '" onclick="switchSheet_${postId}(\\''+sheetName+'\\', this)">' + sheetName + '</button>';
+                         });
+                         html += '</div>';
+                       }
+
+                       html += '<div class="excel-table-container">';
+                       html += '<table class="excel-table">';
+                       html += data.data.replace(/<table[^>]*>/g, '').replace('</table>', '');
+                       html += '</table>';
                        html += '</div>';
+
+                       if (data.hasMore) {
+                         html += '<div class="load-more-container">';
+                         html += '<button class="btn btn-primary load-more-btn" onclick="loadMoreRows_${postId}()">📄 Xem thêm ' + ROWS_PER_CHUNK + ' hàng</button>';
+                         html += '<div class="load-more-info">Còn ' + (data.totalRows - data.loadedRows) + ' hàng chưa hiển thị</div>';
+                         html += '</div>';
+                       }
+
+                       container.innerHTML = html;
+                     })
+                     .catch(error => {
+                       document.getElementById('excel-container-${postId}').innerHTML =
+                         '<div class="error-message">Không thể tải file Excel. <a href="${fileUrl}?download=true">⬇️ Tải về</a></div>';
                      });
-
-                     html += '</div>';
-                     container.innerHTML = html;
-                   })
-                   .catch(error => {
-                     document.getElementById('excel-container-${postId}').innerHTML =
-                       '<div class="error-message">Không thể tải file Excel. <a href="${fileUrl}?download=true">⬇️ Tải về</a></div>';
-                   });
-
-                 window.showSheet_${postId} = function(sheetName, button) {
-                   document.querySelectorAll('#excel-container-${postId} .sheet-content').forEach(el => el.classList.remove('active'));
-                   document.querySelectorAll('#excel-container-${postId} .sheet-tab').forEach(el => el.classList.remove('active'));
-                   document.getElementById('sheet_${postId}_' + sheetName).classList.add('active');
-                   button.classList.add('active');
                  }
+
+                 function loadMoreRows_${postId}() {
+                   if (!excelData_${postId}) return;
+
+                   const loadBtn = document.querySelector('#excel-container-${postId} .load-more-btn');
+                   const loadInfo = document.querySelector('#excel-container-${postId} .load-more-info');
+
+                   if (loadBtn) loadBtn.textContent = '⏳ Đang tải...';
+
+                   currentStartRow_${postId} += ROWS_PER_CHUNK;
+
+                   fetch('/preview/excel/${postId}/load-more?startRow=' + currentStartRow_${postId} + '&rows=' + ROWS_PER_CHUNK + '&sheet=' + encodeURIComponent(excelData_${postId}.currentSheet))
+                     .then(response => response.json())
+                     .then(data => {
+                       const table = document.querySelector('#excel-container-${postId} .excel-table');
+                       if (table && data.data) {
+                         // Thêm rows mới vào table
+                         const newRows = data.data.replace(/<table[^>]*>/g, '').replace('</table>', '');
+                         table.innerHTML += newRows;
+
+                         // Cập nhật thông tin
+                         const remainingRows = excelData_${postId}.totalRows - (currentStartRow_${postId} + ROWS_PER_CHUNK);
+                         if (loadInfo) {
+                           loadInfo.textContent = remainingRows > 0 ? 'Còn ' + remainingRows + ' hàng chưa hiển thị' : 'Đã hiển thị tất cả dữ liệu';
+                         }
+
+                         if (!data.hasMore) {
+                           loadBtn.style.display = 'none';
+                         } else {
+                           loadBtn.textContent = '📄 Xem thêm ' + ROWS_PER_CHUNK + ' hàng';
+                         }
+                       }
+                     })
+                     .catch(error => {
+                       console.error('Error loading more rows:', error);
+                       if (loadBtn) loadBtn.textContent = '❌ Lỗi tải dữ liệu';
+                     });
+                 }
+
+                 function switchSheet_${postId}(sheetName, button) {
+                   if (!excelData_${postId}) return;
+
+                   // Reset state
+                   currentStartRow_${postId} = 0;
+                   excelData_${postId}.currentSheet = sheetName;
+
+                   // Update active tab
+                   document.querySelectorAll('#excel-container-${postId} .sheet-tab').forEach(el => el.classList.remove('active'));
+                   button.classList.add('active');
+
+                   // Reload preview for new sheet
+                   document.getElementById('excel-container-${postId}').innerHTML = '<div class="loading-message">Đang chuyển sheet...</div>';
+                   loadExcelPreview_${postId}();
+                 }
+
+                 // Load initial preview
+                 loadExcelPreview_${postId}();
                </script>
              </div>
            </div>

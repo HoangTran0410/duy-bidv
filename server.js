@@ -31,6 +31,24 @@ function loadPostFiles(postId, callback) {
   );
 }
 
+// Helper function to get first Excel file for a post (for preview)
+function getFirstExcelFile(postId, callback) {
+  db.get(
+    "SELECT * FROM post_files WHERE post_id = ? AND (file_name LIKE '%.xlsx' OR file_name LIKE '%.xls') ORDER BY file_order, created_at LIMIT 1",
+    [postId],
+    callback
+  );
+}
+
+// Helper function to get first file for a post (legacy support)
+function getFirstFile(postId, callback) {
+  db.get(
+    "SELECT * FROM post_files WHERE post_id = ? ORDER BY file_order, created_at LIMIT 1",
+    [postId],
+    callback
+  );
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -191,9 +209,6 @@ db.serialize(() => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         content TEXT,
-        file_path TEXT,
-        file_name TEXT,
-        file_size INTEGER,
         user_id INTEGER,
         category_id INTEGER,
         view_count INTEGER DEFAULT 0,
@@ -831,36 +846,61 @@ app.get("/post/:id", requireAuth, (req, res) => {
   );
 });
 
-// Convert Excel file to HTML for preview
+// Get Excel file info and first chunk for preview
 app.get("/preview/excel/:id", requireAuth, (req, res) => {
   const postId = req.params.id;
+  const rowsPerChunk = 50; // Chỉ load 50 rows đầu tiên
 
-  db.get("SELECT * FROM posts WHERE id = ?", [postId], (err, post) => {
+  getFirstExcelFile(postId, (err, file) => {
     if (err) {
       console.error(err);
       return res.status(500).send("Lỗi database");
     }
 
-    if (!post || !post.file_path) {
-      return res.status(404).send("File không tồn tại!");
+    if (!file || !file.file_path) {
+      return res.status(404).send("File Excel không tồn tại!");
     }
 
-    const filePath = path.join(__dirname, post.file_path);
+    const filePath = path.join(__dirname, file.file_path);
     if (fs.existsSync(filePath)) {
       try {
         const workbook = XLSX.readFile(filePath);
         const sheetNames = workbook.SheetNames;
-        const worksheets = {};
+        const firstSheet = workbook.Sheets[sheetNames[0]];
 
-        sheetNames.forEach((sheetName) => {
-          const worksheet = workbook.Sheets[sheetName];
-          worksheets[sheetName] = XLSX.utils.sheet_to_html(worksheet);
-        });
+        // Chỉ lấy thông tin cơ bản và 50 rows đầu tiên
+        const range = XLSX.utils.decode_range(firstSheet["!ref"] || "A1:A1");
+        const totalRows = range.e.r + 1;
+        const totalCols = range.e.c + 1;
+
+        // Tạo range chỉ cho 50 rows đầu
+        const limitedRange = {
+          s: { r: 0, c: 0 },
+          e: { r: Math.min(rowsPerChunk - 1, totalRows - 1), c: totalCols - 1 },
+        };
+
+        const limitedSheet = {};
+        for (let row = limitedRange.s.r; row <= limitedRange.e.r; row++) {
+          for (let col = limitedRange.s.c; col <= limitedRange.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+            if (firstSheet[cellAddress]) {
+              limitedSheet[cellAddress] = firstSheet[cellAddress];
+            }
+          }
+        }
+        limitedSheet["!ref"] = XLSX.utils.encode_range(limitedRange);
+
+        const htmlContent = XLSX.utils.sheet_to_html(limitedSheet);
 
         res.json({
-          fileName: post.file_name,
+          fileName: file.file_name,
           sheets: sheetNames,
-          data: worksheets,
+          currentSheet: sheetNames[0],
+          totalRows: totalRows,
+          totalCols: totalCols,
+          loadedRows: Math.min(rowsPerChunk, totalRows),
+          hasMore: totalRows > rowsPerChunk,
+          data: htmlContent,
         });
       } catch (error) {
         console.error("Excel preview error:", error);
@@ -872,60 +912,131 @@ app.get("/preview/excel/:id", requireAuth, (req, res) => {
   });
 });
 
-// Convert Word file to HTML for preview
-app.get("/preview/word/:id", requireAuth, (req, res) => {
+// Load more Excel data (pagination)
+app.get("/preview/excel/:id/load-more", requireAuth, (req, res) => {
   const postId = req.params.id;
+  const startRow = parseInt(req.query.startRow) || 0;
+  const rowsPerChunk = parseInt(req.query.rows) || 50;
+  const sheetName = req.query.sheet || "";
 
-  db.get("SELECT * FROM posts WHERE id = ?", [postId], (err, post) => {
+  getFirstExcelFile(postId, (err, file) => {
     if (err) {
       console.error(err);
       return res.status(500).send("Lỗi database");
     }
 
-    if (!post || !post.file_path) {
-      return res.status(404).send("File không tồn tại!");
+    if (!file || !file.file_path) {
+      return res.status(404).send("File Excel không tồn tại!");
     }
 
-    const filePath = path.join(__dirname, post.file_path);
+    const filePath = path.join(__dirname, file.file_path);
     if (fs.existsSync(filePath)) {
-      mammoth
-        .convertToHtml({ path: filePath })
-        .then((result) => {
-          res.json({
-            fileName: post.file_name,
-            html: result.value,
-            messages: result.messages,
-          });
-        })
-        .catch((error) => {
-          console.error("Word preview error:", error);
-          res.status(500).send("Không thể preview file Word");
+      try {
+        const workbook = XLSX.readFile(filePath);
+        const targetSheet =
+          workbook.Sheets[sheetName] || workbook.Sheets[workbook.SheetNames[0]];
+
+        const range = XLSX.utils.decode_range(targetSheet["!ref"] || "A1:A1");
+        const totalRows = range.e.r + 1;
+        const totalCols = range.e.c + 1;
+
+        // Tạo range cho chunk tiếp theo
+        const chunkRange = {
+          s: { r: startRow, c: 0 },
+          e: {
+            r: Math.min(startRow + rowsPerChunk - 1, totalRows - 1),
+            c: totalCols - 1,
+          },
+        };
+
+        const chunkSheet = {};
+        for (let row = chunkRange.s.r; row <= chunkRange.e.r; row++) {
+          for (let col = chunkRange.s.c; col <= chunkRange.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+            if (targetSheet[cellAddress]) {
+              chunkSheet[cellAddress] = targetSheet[cellAddress];
+            }
+          }
+        }
+        chunkSheet["!ref"] = XLSX.utils.encode_range(chunkRange);
+
+        const htmlContent = XLSX.utils.sheet_to_html(chunkSheet);
+
+        res.json({
+          startRow: startRow,
+          endRow: chunkRange.e.r,
+          totalRows: totalRows,
+          hasMore: chunkRange.e.r < totalRows - 1,
+          data: htmlContent,
         });
+      } catch (error) {
+        console.error("Excel load more error:", error);
+        res.status(500).send("Không thể load thêm dữ liệu Excel");
+      }
     } else {
       res.status(404).send("File không tìm thấy!");
     }
   });
 });
 
-// Download file
+// Convert Word file to HTML for preview
+app.get("/preview/word/:id", requireAuth, (req, res) => {
+  const postId = req.params.id;
+
+  db.get(
+    "SELECT * FROM post_files WHERE post_id = ? AND (file_name LIKE '%.docx' OR file_name LIKE '%.doc') ORDER BY file_order, created_at LIMIT 1",
+    [postId],
+    (err, file) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).send("Lỗi database");
+      }
+
+      if (!file || !file.file_path) {
+        return res.status(404).send("File Word không tồn tại!");
+      }
+
+      const filePath = path.join(__dirname, file.file_path);
+      if (fs.existsSync(filePath)) {
+        mammoth
+          .convertToHtml({ path: filePath })
+          .then((result) => {
+            res.json({
+              fileName: file.file_name,
+              html: result.value,
+              messages: result.messages,
+            });
+          })
+          .catch((error) => {
+            console.error("Word preview error:", error);
+            res.status(500).send("Không thể preview file Word");
+          });
+      } else {
+        res.status(404).send("File không tìm thấy!");
+      }
+    }
+  );
+});
+
+// Download file (legacy - redirects to first file)
 app.get("/download/:id", requireAuth, (req, res) => {
   const postId = req.params.id;
   const download = req.query.download === "true"; // Check if forced download
 
-  db.get("SELECT * FROM posts WHERE id = ?", [postId], (err, post) => {
+  getFirstFile(postId, (err, file) => {
     if (err) {
       console.error(err);
       return res.status(500).send("Lỗi database");
     }
 
-    if (!post || !post.file_path) {
+    if (!file || !file.file_path) {
       return res.status(404).send("File không tồn tại!");
     }
 
-    const filePath = path.join(__dirname, post.file_path);
+    const filePath = path.join(__dirname, file.file_path);
     if (fs.existsSync(filePath)) {
       // Get file extension to set proper content type
-      const ext = post.file_name.toLowerCase().split(".").pop();
+      const ext = file.file_name.toLowerCase().split(".").pop();
 
       // Set content type based on file extension
       const contentTypes = {
@@ -950,13 +1061,13 @@ app.get("/download/:id", requireAuth, (req, res) => {
 
       if (download) {
         // Force download
-        res.download(filePath, post.file_name);
+        res.download(filePath, file.file_name);
       } else {
         // Allow inline viewing
         res.setHeader("Content-Type", contentType);
         res.setHeader(
           "Content-Disposition",
-          `inline; filename="${post.file_name}"`
+          `inline; filename="${file.file_name}"`
         );
         res.sendFile(filePath);
       }
@@ -1021,37 +1132,34 @@ app.get("/download/file/:fileId", requireAuth, (req, res) => {
   });
 });
 
-// Xóa post (move file to deleted folder)
+// Xóa post (move files to deleted folder)
 app.post("/delete/:id", requireAuth, (req, res) => {
   const postId = req.params.id;
 
-  db.get("SELECT * FROM posts WHERE id = ?", [postId], (err, post) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send("Lỗi database");
-    }
+  // Move all files to deleted folder instead of deleting
+  loadPostFiles(postId, (err, files) => {
+    if (!err && files && files.length > 0) {
+      files.forEach((file) => {
+        if (file.file_path && fs.existsSync(file.file_path)) {
+          try {
+            // Create unique filename in deleted folder with timestamp
+            const fileName = path.basename(file.file_path);
+            const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+            const deletedFileName = `${timestamp}_postId-${postId}_fileId-${file.id}_${fileName}`;
+            const deletedFilePath = path.join(deletedDir, deletedFileName);
 
-    // Move file to deleted folder instead of deleting
-    if (post && post.file_path) {
-      const filePath = path.join(__dirname, post.file_path);
-      if (fs.existsSync(filePath)) {
-        try {
-          // Create unique filename in deleted folder with timestamp
-          const fileName = path.basename(filePath);
-          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-          const deletedFileName = `${timestamp}_postId-${postId}_${fileName}`;
-          const deletedFilePath = path.join(deletedDir, deletedFileName);
-
-          // Move file to deleted folder
-          fs.renameSync(filePath, deletedFilePath);
-          console.log(`File moved to deleted folder: ${deletedFileName}`);
-        } catch (moveError) {
-          console.error("Error moving file to deleted folder:", moveError);
-          // Continue with post deletion even if file move fails
+            // Move file to deleted folder
+            fs.renameSync(file.file_path, deletedFilePath);
+            console.log(`File moved to deleted folder: ${deletedFileName}`);
+          } catch (moveError) {
+            console.error("Error moving file to deleted folder:", moveError);
+            // Continue with post deletion even if file move fails
+          }
         }
-      }
+      });
     }
 
+    // Delete post and its files from database
     db.run("DELETE FROM posts WHERE id = ?", [postId], (err) => {
       if (err) {
         console.error(err);
