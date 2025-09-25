@@ -1,5 +1,38 @@
 const moment = require("moment");
 
+// Markdown Editor Helper Functions
+function generateMarkdownEditorIncludes() {
+  return `
+    <link rel="stylesheet" href="/libs/easymde.min.css">
+    <script src="/libs/easymde.min.js"></script>`;
+}
+
+function generateMarkdownEditorScript(
+  formClass = "upload-form",
+  uniqueId = "bidv-content"
+) {
+  return `
+    <script>
+        // Initialize EasyMDE markdown editor
+        const easyMDE = new EasyMDE({
+            element: document.getElementById('content'),
+            spellChecker: false,
+            placeholder: 'Nhập mô tả nội dung tài liệu (hỗ trợ Markdown)...',
+            status: false,
+            autosave: {
+                enabled: true,
+                uniqueId: "${uniqueId}",
+                delay: 1000,
+            },
+        });
+
+        // Ensure the form submits the markdown content
+        document.querySelector('.${formClass}').addEventListener('submit', function() {
+            document.getElementById('content').value = easyMDE.value();
+        });
+    </script>`;
+}
+
 // Exchange rates data (normally this would come from an API)
 function getExchangeRates() {
   return [
@@ -586,9 +619,16 @@ function generateHomePage(
                                     </div>
                                     ${
                                       searchTerm && post.content
-                                        ? `<div class="search-snippet">
+                                        ? `<div class="search-snippet markdown-content">
                                             ${
-                                              post.content.length > 150
+                                              post.content_html
+                                                ? post.content_html.length > 200
+                                                  ? post.content_html.substring(
+                                                      0,
+                                                      200
+                                                    ) + "..."
+                                                  : post.content_html
+                                                : post.content.length > 150
                                                 ? post.content.substring(
                                                     0,
                                                     150
@@ -703,7 +743,7 @@ function generateUploadPage(session, categories = []) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đăng tài liệu - BIDV Intranet Portal</title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css">${generateMarkdownEditorIncludes()}
 </head>
 <body>
     ${generateNavigation(session, "upload", categories)}
@@ -737,8 +777,8 @@ function generateUploadPage(session, categories = []) {
                 </div>
 
                 <div class="form-group">
-                    <label for="content">Mô tả nội dung</label>
-                    <textarea id="content" name="content" rows="4" placeholder="Nhập mô tả nội dung tài liệu (tùy chọn)..."></textarea>
+                    <label for="content">Mô tả nội dung (hỗ trợ Markdown)</label>
+                    <textarea id="content" name="content" rows="8" placeholder="Nhập mô tả nội dung tài liệu (tùy chọn)..."></textarea>
                 </div>
 
                 <div class="form-group">
@@ -756,6 +796,8 @@ function generateUploadPage(session, categories = []) {
     </div>
 
     ${generateFooter()}
+
+    ${generateMarkdownEditorScript("upload-form", "bidv-upload-content")}
 </body>
 </html>
   `;
@@ -971,7 +1013,7 @@ function generateEditPage(post, session, categories = []) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chỉnh sửa tài liệu - BIDV Intranet Portal</title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css">${generateMarkdownEditorIncludes()}
 </head>
 <body>
     ${generateNavigation(session, "edit", categories)}
@@ -991,8 +1033,8 @@ function generateEditPage(post, session, categories = []) {
                 </div>
 
                 <div class="form-group">
-                    <label for="content">Mô tả nội dung</label>
-                    <textarea id="content" name="content" rows="6">${
+                    <label for="content">Mô tả nội dung (hỗ trợ Markdown)</label>
+                    <textarea id="content" name="content" rows="8">${
                       post.content || ""
                     }</textarea>
                 </div>
@@ -1025,6 +1067,8 @@ function generateEditPage(post, session, categories = []) {
     </div>
 
     ${generateFooter()}
+
+    ${generateMarkdownEditorScript("edit-form", `bidv-edit-content-${post.id}`)}
 </body>
 </html>
   `;
@@ -1383,10 +1427,9 @@ function generatePostDetailPage(post, session, categories = []) {
                     ? `
                 <div class="post-description">
                     <h3>Mô tả:</h3>
-                    <div class="post-content">${post.content.replace(
-                      /\n/g,
-                      "<br>"
-                    )}</div>
+                    <div class="post-content markdown-content">${
+                      post.content_html || post.content.replace(/\\n/g, "<br>")
+                    }</div>
                 </div>
                 `
                     : ""

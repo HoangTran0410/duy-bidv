@@ -279,7 +279,7 @@ body {
   /* sticky top */
   position: sticky;
   top: 0;
-  z-index: 1000;
+  /* z-index: 1000; */
 }
 
 .main-nav-content {
@@ -2346,4 +2346,430 @@ body {
     font-size: 12px;
     min-width: 32px;
   }
+}
+
+/* ==============================================
+   MARKDOWN EDITOR STYLES
+   ============================================== */
+
+/* EasyMDE Editor Customization */
+.EasyMDEContainer {
+  margin: 10px 0;
+}
+
+.EasyMDEContainer .CodeMirror {
+  border: 2px solid #e1e5e9;
+  border-radius: 6px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 200px;
+  background: #fff;
+  transition: border-color 0.3s ease;
+}
+
+.EasyMDEContainer .CodeMirror:focus-within {
+  border-color: var(--bidv-green);
+  box-shadow: 0 0 0 3px rgba(27, 123, 58, 0.1);
+}
+
+.EasyMDEContainer .CodeMirror-scroll {
+  padding: 15px;
+}
+
+.EasyMDEContainer .editor-toolbar {
+  border: 2px solid #e1e5e9;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: #f8f9fa;
+  padding: 8px 12px;
+}
+
+.EasyMDEContainer .editor-toolbar button {
+  background: transparent;
+  border: none;
+  color: #495057;
+  padding: 6px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  margin: 0 2px;
+}
+
+.EasyMDEContainer .editor-toolbar button:hover {
+  background: var(--bidv-green);
+  color: white;
+}
+
+.EasyMDEContainer .editor-toolbar button.active {
+  background: var(--bidv-green);
+  color: white;
+}
+
+.EasyMDEContainer .editor-toolbar .separator {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: #dee2e6;
+  margin: 0 8px;
+}
+
+/* Preview styling */
+.EasyMDEContainer .editor-preview,
+.EasyMDEContainer .editor-preview-side {
+  background: #fff;
+  border: 2px solid #e1e5e9;
+  border-radius: 6px;
+  padding: 15px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+}
+
+.EasyMDEContainer .editor-preview h1,
+.EasyMDEContainer .editor-preview-side h1 {
+  color: var(--bidv-green);
+  border-bottom: 2px solid var(--bidv-green);
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.EasyMDEContainer .editor-preview h2,
+.EasyMDEContainer .editor-preview-side h2 {
+  color: var(--bidv-green);
+  border-bottom: 1px solid #e1e5e9;
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+}
+
+.EasyMDEContainer .editor-preview h3,
+.EasyMDEContainer .editor-preview-side h3 {
+  color: var(--bidv-green);
+  margin-bottom: 10px;
+}
+
+.EasyMDEContainer .editor-preview code,
+.EasyMDEContainer .editor-preview-side code {
+  background: #f8f9fa;
+  color: #e83e8c;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "Courier New", monospace;
+  font-size: 13px;
+}
+
+.EasyMDEContainer .editor-preview pre,
+.EasyMDEContainer .editor-preview-side pre {
+  background: #f8f9fa;
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+  font-family: "Courier New", monospace;
+}
+
+.EasyMDEContainer .editor-preview blockquote,
+.EasyMDEContainer .editor-preview-side blockquote {
+  border-left: 4px solid var(--bidv-green);
+  background: #f8f9fa;
+  margin: 16px 0;
+  padding: 12px 16px;
+  font-style: italic;
+}
+
+.EasyMDEContainer .editor-preview table,
+.EasyMDEContainer .editor-preview-side table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+}
+
+.EasyMDEContainer .editor-preview table th,
+.EasyMDEContainer .editor-preview-side table th,
+.EasyMDEContainer .editor-preview table td,
+.EasyMDEContainer .editor-preview-side table td {
+  border: 1px solid #e1e5e9;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.EasyMDEContainer .editor-preview table th,
+.EasyMDEContainer .editor-preview-side table th {
+  background: var(--bidv-green);
+  color: white;
+  font-weight: 600;
+}
+
+/* Fullscreen mode */
+.EasyMDEContainer.editor-fullscreen {
+  z-index: 1000;
+}
+
+.EasyMDEContainer.editor-fullscreen .CodeMirror {
+  border-radius: 0;
+}
+
+/* Mobile responsiveness for markdown editor */
+@media (max-width: 768px) {
+  .EasyMDEContainer .editor-toolbar {
+    padding: 6px 8px;
+    flex-wrap: wrap;
+  }
+
+  .EasyMDEContainer .editor-toolbar button {
+    padding: 4px 6px;
+    margin: 1px;
+    font-size: 12px;
+  }
+
+  .EasyMDEContainer .CodeMirror {
+    min-height: 150px;
+  }
+
+  .EasyMDEContainer .CodeMirror-scroll {
+    padding: 10px;
+  }
+}
+
+/* Markdown content display in posts */
+.markdown-content {
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  color: var(--bidv-green);
+  margin-top: 24px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.markdown-content h1 {
+  border-bottom: 2px solid var(--bidv-green);
+  padding-bottom: 8px;
+}
+
+.markdown-content h2 {
+  border-bottom: 1px solid #e1e5e9;
+  padding-bottom: 6px;
+}
+
+.markdown-content p {
+  margin-bottom: 16px;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.markdown-content em {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.markdown-content code {
+  background: #f8f9fa;
+  color: #e83e8c;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "Courier New", monospace;
+  font-size: 13px;
+}
+
+.markdown-content pre {
+  background: #f8f9fa;
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.markdown-content pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid var(--bidv-green);
+  background: #f8f9fa;
+  margin: 16px 0;
+  padding: 12px 16px;
+  font-style: italic;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+.markdown-content li {
+  margin-bottom: 4px;
+}
+
+.markdown-content a {
+  color: var(--bidv-green);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.markdown-content a:hover {
+  border-bottom-color: var(--bidv-green);
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.markdown-content table th,
+.markdown-content table td {
+  border: 1px solid #e1e5e9;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdown-content table th {
+  background: var(--bidv-green);
+  color: white;
+  font-weight: 600;
+}
+
+.markdown-content table tr:nth-child(even) {
+  background: #f8f9fa;
+}
+
+.markdown-content hr {
+  border: none;
+  border-top: 2px solid #e1e5e9;
+  margin: 24px 0;
+}
+
+.markdown-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 16px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Markdown preview table styling */
+.markdown-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.markdown-table th,
+.markdown-table td {
+  border: 1px solid #e1e5e9;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdown-table th {
+  background: var(--bidv-green);
+  color: white;
+  font-weight: 600;
+}
+
+.markdown-table tr:nth-child(even) {
+  background: #f8f9fa;
+}
+
+/* Enhanced EasyMDE preview styling */
+.EasyMDEContainer .editor-preview h4,
+.EasyMDEContainer .editor-preview-side h4 {
+  color: var(--bidv-green);
+  margin-bottom: 8px;
+  font-size: 1.1em;
+}
+
+.EasyMDEContainer .editor-preview del,
+.EasyMDEContainer .editor-preview-side del {
+  color: #6c757d;
+  text-decoration: line-through;
+}
+
+.EasyMDEContainer .editor-preview img,
+.EasyMDEContainer .editor-preview-side img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 12px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.EasyMDEContainer .editor-preview a,
+.EasyMDEContainer .editor-preview-side a {
+  color: var(--bidv-green);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.EasyMDEContainer .editor-preview a:hover,
+.EasyMDEContainer .editor-preview-side a:hover {
+  border-bottom-color: var(--bidv-green);
+}
+
+.EasyMDEContainer .editor-preview ul,
+.EasyMDEContainer .editor-preview ol,
+.EasyMDEContainer .editor-preview-side ul,
+.EasyMDEContainer .editor-preview-side ol {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+.EasyMDEContainer .editor-preview li,
+.EasyMDEContainer .editor-preview-side li {
+  margin-bottom: 4px;
+}
+
+.EasyMDEContainer .editor-preview hr,
+.EasyMDEContainer .editor-preview-side hr {
+  border: none;
+  border-top: 2px solid #e1e5e9;
+  margin: 24px 0;
+}
+
+.EasyMDEContainer .editor-preview .markdown-table,
+.EasyMDEContainer .editor-preview-side .markdown-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.EasyMDEContainer .editor-preview .markdown-table th,
+.EasyMDEContainer .editor-preview-side .markdown-table th,
+.EasyMDEContainer .editor-preview .markdown-table td,
+.EasyMDEContainer .editor-preview-side .markdown-table td {
+  border: 1px solid #e1e5e9;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.EasyMDEContainer .editor-preview .markdown-table th,
+.EasyMDEContainer .editor-preview-side .markdown-table th {
+  background: var(--bidv-green);
+  color: white;
+  font-weight: 600;
 }

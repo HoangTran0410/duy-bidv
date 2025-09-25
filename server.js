@@ -9,6 +9,7 @@ const fs = require("fs");
 const moment = require("moment");
 const XLSX = require("xlsx");
 const mammoth = require("mammoth");
+const { marked } = require("marked");
 const {
   generateLoginPage,
   generateHomePage,
@@ -272,6 +273,26 @@ function getCategories(callback) {
   });
 }
 
+// Helper function to render markdown to HTML
+function renderMarkdown(markdownText) {
+  if (!markdownText) return "";
+
+  // Configure marked options for security and Vietnamese support
+  marked.setOptions({
+    breaks: true, // Convert '\n' to <br>
+    gfm: true, // GitHub Flavored Markdown
+    headerIds: false, // Disable header IDs for security
+    mangle: false, // Don't mangle email addresses
+  });
+
+  try {
+    return marked(markdownText);
+  } catch (error) {
+    console.error("Markdown parsing error:", error);
+    return markdownText.replace(/\n/g, "<br>"); // Fallback to simple line breaks
+  }
+}
+
 // Authentication middleware
 function requireAuth(req, res, next) {
   if (req.session && req.session.userId) {
@@ -418,7 +439,7 @@ app.get("/", requireAuth, (req, res) => {
                 return res.status(500).send("Lỗi database");
               }
 
-              // Format thời gian
+              // Format thời gian và render markdown
               posts.forEach((post) => {
                 post.formatted_date = moment(post.created_at).format(
                   "DD/MM/YYYY HH:mm"
@@ -426,6 +447,7 @@ app.get("/", requireAuth, (req, res) => {
                 post.file_size_mb = post.file_size
                   ? (post.file_size / (1024 * 1024)).toFixed(2)
                   : null;
+                post.content_html = renderMarkdown(post.content);
               });
 
               res.send(
@@ -647,7 +669,7 @@ app.get("/search", requireAuth, (req, res) => {
                 return res.status(500).send("Lỗi database");
               }
 
-              // Format posts
+              // Format posts và render markdown
               posts.forEach((post) => {
                 post.formatted_date = moment(post.created_at).format(
                   "DD/MM/YYYY HH:mm"
@@ -655,6 +677,7 @@ app.get("/search", requireAuth, (req, res) => {
                 post.file_size_mb = post.file_size
                   ? (post.file_size / (1024 * 1024)).toFixed(2)
                   : null;
+                post.content_html = renderMarkdown(post.content);
               });
 
               res.send(
@@ -725,10 +748,11 @@ app.get("/post/:id", requireAuth, (req, res) => {
             return res.status(404).send("Bài viết không tồn tại!");
           }
 
-          // Format date
+          // Format date và render markdown
           post.formatted_date = moment(post.created_at).format(
             "DD/MM/YYYY HH:mm"
           );
+          post.content_html = renderMarkdown(post.content);
 
           // Show post detail page
           res.send(generatePostDetailPage(post, req.session, categories));

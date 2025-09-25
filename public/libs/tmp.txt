@@ -1,0 +1,101 @@
+toolbar: [
+                'bold', 'italic', 'heading', '|',
+                'quote', 'unordered-list', 'ordered-list', '|',
+                'link', 'image', '|',
+                'code', 'table', '|',
+                'preview', 'side-by-side', 'fullscreen', '|',
+                'guide'
+            ],
+
+previewRender: function(plainText) {
+                // Enhanced markdown preview with full support
+                let html = plainText
+                    // Headers
+                    .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
+                    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+
+                    // Code blocks (before inline code)
+                    .replace(/\\\`\\\`\\\`([\\s\\S]*?)\\\`\\\`\\\`/g, '<pre><code>$1</code></pre>')
+
+                    // Bold and Italic (order matters!)
+                    .replace(/\\*\\*\\*(.*?)\\*\\*\\*/g, '<strong><em>$1</em></strong>')
+                    .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')
+                    .replace(/\\*(.*?)\\*/g, '<em>$1</em>')
+
+                    // Inline code
+                    .replace(/\\\`(.*?)\\\`/g, '<code>$1</code>')
+
+                    // Images (before links!)
+                    .replace(/!\\[([^\\]]*)\\]\\(([^\\)]+)\\)/g, '<img src="$2" alt="$1" style="max-width: 100%; height: auto;" />')
+
+                    // Links
+                    .replace(/\\[([^\\]]+)\\]\\(([^\\)]+)\\)/g, '<a href="$2" target="_blank">$1</a>')
+
+                    // Blockquotes
+                    .replace(/^> (.+)/gim, '<blockquote>$1</blockquote>')
+
+                    // Horizontal rule
+                    .replace(/^---$/gim, '<hr>')
+                    .replace(/^\\*\\*\\*$/gim, '<hr>')
+
+                    // Strikethrough
+                    .replace(/~~(.*?)~~/g, '<del>$1</del>')
+
+                    // Line breaks
+                    .replace(/\\n/g, '<br>');
+
+                // Handle lists (more complex processing)
+                html = html.replace(/^(\\s*[-\\*\\+] .+)$/gim, function(match, listItem) {
+                    return listItem.replace(/^\\s*[-\\*\\+] (.+)$/gim, '<li>$1</li>');
+                });
+
+                // Wrap consecutive <li> tags in <ul>
+                html = html.replace(/(<li>.*<\\/li>)(\\s*<br>\\s*<li>.*<\\/li>)*/g, function(match) {
+                    return '<ul>' + match.replace(/<br>\\s*/g, '') + '</ul>';
+                });
+
+                // Handle ordered lists
+                html = html.replace(/^(\\s*\\d+\\. .+)$/gim, function(match, listItem) {
+                    return listItem.replace(/^\\s*\\d+\\. (.+)$/gim, '<li>$1</li>');
+                });
+
+                // Wrap consecutive ordered <li> tags in <ol>
+                html = html.replace(/(<li>.*<\\/li>)(\\s*<br>\\s*<li>.*<\\/li>)*/g, function(match) {
+                    // Check if this was from ordered list (crude check)
+                    if (match.includes('1.') || match.includes('2.')) {
+                        return '<ol>' + match.replace(/<br>\\s*/g, '') + '</ol>';
+                    }
+                    return match;
+                });
+
+                // Basic table support
+                html = html.replace(/^\\|(.+)\\|$/gim, function(match, content) {
+                    const cells = content.split('|').map(cell => cell.trim());
+                    const isHeader = content.includes('---');
+
+                    if (isHeader) {
+                        return ''; // Skip separator row
+                    }
+
+                    const tag = cells.every(cell => cell.includes('---')) ? 'th' : 'td';
+                    const row = cells.map(cell => \`<\${tag}>\${cell}</\${tag}>\`).join('');
+                    return \`<tr>\${row}</tr>\`;
+                });
+
+                // Wrap table rows
+                html = html.replace(/(<tr>.*<\\/tr>)(\\s*<br>\\s*<tr>.*<\\/tr>)*/g, function(match) {
+                    return '<table class="markdown-table">' + match.replace(/<br>\\s*/g, '') + '</table>';
+                });
+
+                return html;
+            },
+
+
+insertTexts: {
+                horizontalRule: ["", "\\n\\n-----\\n\\n"],
+                image: ["![](", ")"],
+                link: ["[", "](http://)"],
+                table: ["", "\\n\\n| Cột 1 | Cột 2 | Cột 3 |\\n| --- | --- | --- |\\n| Dữ liệu | Dữ liệu | Dữ liệu |\\n\\n"],
+            }
