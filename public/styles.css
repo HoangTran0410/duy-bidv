@@ -371,11 +371,15 @@ body {
 
 /* Main Navigation */
 .main-nav {
-  background: transparent;
+  background: var(--bg-white);
   color: var(--text-primary);
   padding: 0;
   border-bottom: 1px solid var(--border-light);
   box-shadow: 0 2px 4px var(--shadow-light);
+  /* sticky top */
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 .main-nav-content {
@@ -424,13 +428,14 @@ body {
 .dropdown {
   position: relative;
   display: inline-block;
+  border-bottom: 3px solid transparent;
 }
 
 .dropdown-toggle {
   color: var(--text-primary);
   text-decoration: none;
   padding: 15px 20px;
-  border-bottom: 3px solid transparent;
+
   transition: all 0.3s;
   font-weight: 500;
   position: relative;
@@ -441,10 +446,11 @@ body {
   border: none;
   background: none;
   font-size: inherit;
+  height: 100%;
 }
 
-.dropdown-toggle:hover,
-.dropdown.active .dropdown-toggle {
+.dropdown:hover,
+.dropdown.active .dropdown {
   color: var(--bidv-green);
   border-bottom-color: var(--bidv-green);
 }
@@ -455,6 +461,7 @@ body {
   transition: transform 0.3s;
 }
 
+.dropdown:hover .dropdown-toggle::after,
 .dropdown.active .dropdown-toggle::after {
   transform: rotate(180deg);
 }
@@ -469,13 +476,20 @@ body {
   box-shadow: 0 4px 12px var(--shadow-medium);
   min-width: 250px;
   z-index: 1000;
-  display: none;
   max-height: 400px;
   overflow-y: auto;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.1s ease;
 }
 
-.dropdown.active .dropdown-menu {
-  display: block;
+/* CSS-only hover dropdown */
+.dropdown:hover .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition: all 0.3s ease;
 }
 
 .dropdown-item {

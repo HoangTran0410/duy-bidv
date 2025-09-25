@@ -123,7 +123,7 @@ function generateExchangeRatesWidget() {
 function generateCategoryDropdown(categories, selectedCategory = null) {
   return `
     <div class="dropdown" id="categoryDropdown">
-      <button class="dropdown-toggle" onclick="toggleDropdown('categoryDropdown')">
+      <button class="dropdown-toggle">
         Danh mục
       </button>
       <div class="dropdown-menu">
@@ -259,28 +259,6 @@ function generateNavigation(session, currentPage = "", categories = []) {
         </div>
       </div>
     </nav>
-    <script>
-      function toggleDropdown(dropdownId) {
-        const dropdown = document.getElementById(dropdownId);
-        dropdown.classList.toggle('active');
-
-        // Close other dropdowns
-        document.querySelectorAll('.dropdown').forEach(d => {
-          if (d.id !== dropdownId) {
-            d.classList.remove('active');
-          }
-        });
-      }
-
-      // Close dropdowns when clicking outside
-      document.addEventListener('click', function(e) {
-        if (!e.target.closest('.dropdown')) {
-          document.querySelectorAll('.dropdown').forEach(d => {
-            d.classList.remove('active');
-          });
-        }
-      });
-    </script>
   `;
 }
 
