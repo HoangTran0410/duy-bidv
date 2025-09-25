@@ -40,8 +40,8 @@ app.use((req, res, next) => {
 app.use(
   session({
     store: new SQLiteStore({
-      db: "db/sessions.db",
-      dir: "./",
+      db: "sessions.db",
+      dir: "./db/",
     }),
     secret: "bidv-intranet-secret-key-2025",
     resave: false,
@@ -575,6 +575,105 @@ app.post("/admin/announcement", requireAdmin, (req, res) => {
         return res.status(500).send("Lỗi khi cập nhật thông báo!");
       }
       res.redirect("/admin");
+    }
+  );
+});
+
+// Search posts
+app.get("/search", requireAuth, (req, res) => {
+  const searchTerm = req.query.q || "";
+  const currentPage = parseInt(req.query.page) || 1;
+
+  if (!searchTerm.trim()) {
+    return res.redirect("/");
+  }
+
+  // Get categories for navigation
+  db.all(
+    `SELECT c.*, COUNT(p.id) as post_count
+     FROM categories c
+     LEFT JOIN posts p ON c.id = p.category_id
+     GROUP BY c.id
+     ORDER BY c.name`,
+    (err, categories) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).send("Lỗi database");
+      }
+
+      // Pagination settings
+      const postsPerPage = 5;
+      const offset = (currentPage - 1) * postsPerPage;
+
+      // Count total search results
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM posts p
+        LEFT JOIN users u ON p.user_id = u.id
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE p.title LIKE ? OR p.content LIKE ? OR p.file_name LIKE ?
+      `;
+      const searchPattern = `%${searchTerm}%`;
+
+      db.get(
+        countQuery,
+        [searchPattern, searchPattern, searchPattern],
+        (err, countResult) => {
+          if (err) {
+            console.error(err);
+            return res.status(500).send("Lỗi database");
+          }
+
+          const totalPosts = countResult.total;
+
+          // Search query with pagination
+          const searchQuery = `
+          SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
+                 c.name as category_name, c.icon as category_icon
+          FROM posts p
+          LEFT JOIN users u ON p.user_id = u.id
+          LEFT JOIN categories c ON p.category_id = c.id
+          WHERE p.title LIKE ? OR p.content LIKE ? OR p.file_name LIKE ?
+          ORDER BY p.created_at DESC
+          LIMIT ? OFFSET ?
+        `;
+
+          db.all(
+            searchQuery,
+            [searchPattern, searchPattern, searchPattern, postsPerPage, offset],
+            (err, posts) => {
+              if (err) {
+                console.error(err);
+                return res.status(500).send("Lỗi database");
+              }
+
+              // Format posts
+              posts.forEach((post) => {
+                post.formatted_date = moment(post.created_at).format(
+                  "DD/MM/YYYY HH:mm"
+                );
+                post.file_size_mb = post.file_size
+                  ? (post.file_size / (1024 * 1024)).toFixed(2)
+                  : null;
+              });
+
+              res.send(
+                generateHomePage(
+                  posts,
+                  "", // No announcement for search results
+                  req.session,
+                  categories,
+                  currentPage,
+                  null, // No selected category
+                  totalPosts,
+                  postsPerPage,
+                  searchTerm // Pass search term
+                )
+              );
+            }
+          );
+        }
+      );
     }
   );
 });

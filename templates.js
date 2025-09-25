@@ -259,7 +259,12 @@ function generateNavigation(session, currentPage = "", categories = []) {
         </div>
         <div class="header-right">
           <div class="search-box">
-            <input type="text" placeholder="Tìm tài liệu, văn bản..." style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; width: 250px;">
+            <form action="/search" method="GET" style="display: flex; align-items: center; gap: 5px;">
+              <input type="text" name="q" placeholder="Tìm tài liệu, văn bản..." style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; width: 250px;" required>
+              <button type="submit" style="padding: 6px 12px; background: var(--bidv-green); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                🔍
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -270,10 +275,10 @@ function generateNavigation(session, currentPage = "", categories = []) {
           <a href="/" class="nav-link ${
             currentPage === "home" ? "active" : ""
           }">Trang chủ</a>
+          ${generateCategoryDropdown(categories)}
           <a href="/upload" class="nav-link ${
             currentPage === "upload" ? "active" : ""
           }">Đăng bài</a>
-          ${generateCategoryDropdown(categories)}
           ${
             session.userRole === "admin"
               ? `
@@ -309,7 +314,8 @@ function generateHomePage(
   currentPage = 1,
   selectedCategory = null,
   totalPosts = 0,
-  postsPerPage = 3
+  postsPerPage = 3,
+  searchTerm = null
 ) {
   const totalPages = Math.ceil(totalPosts / postsPerPage);
   const displayPosts = posts; // Posts already paginated from server
@@ -318,8 +324,10 @@ function generateHomePage(
   const buildPageUrl = (page) => {
     const params = new URLSearchParams();
     if (selectedCategory) params.set("category", selectedCategory);
+    if (searchTerm) params.set("q", searchTerm);
     params.set("page", page);
-    return "?" + params.toString();
+    const baseUrl = searchTerm ? "/search" : "/";
+    return baseUrl + "?" + params.toString();
   };
 
   return `
@@ -328,7 +336,9 @@ function generateHomePage(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trang chủ - BIDV Intranet Portal</title>
+    <title>${
+      searchTerm ? `Kết quả tìm kiếm: "${searchTerm}"` : "Trang chủ"
+    } - BIDV Intranet Portal</title>
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -339,11 +349,22 @@ function generateHomePage(
             <div class="content-left">
                 <div class="news-section">
                     <div class="section-header">
-                        THÔNG TIN NỔI BẬT
+                        ${searchTerm ? "KẾT QUẢ TÌM KIẾM" : "THÔNG TIN NỔI BẬT"}
                     </div>
 
                     ${
-                      announcement
+                      searchTerm
+                        ? `
+                        <div class="search-summary">
+                            <p>Tìm kiếm cho: <strong>"${searchTerm}"</strong></p>
+                            <p>Tìm thấy <strong>${totalPosts}</strong> kết quả</p>
+                        </div>
+                    `
+                        : ""
+                    }
+
+                    ${
+                      announcement && !searchTerm
                         ? `
                     <div class="announcement" style="margin: 0 0 20px 0; background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 6px;">
                         <strong>📢 Thông báo quan trọng:</strong> ${announcement}
@@ -352,8 +373,36 @@ function generateHomePage(
                         : ""
                     }
 
-                    <div class="news-count">${totalPosts} bài</div>
+                    ${
+                      !searchTerm
+                        ? `<div class="news-count">${totalPosts} bài</div>`
+                        : ""
+                    }
 
+                    ${
+                      searchTerm && totalPosts === 0
+                        ? `
+                        <div class="no-results">
+                            <div class="no-results-icon">🔍</div>
+                            <h3>Không tìm thấy kết quả</h3>
+                            <p>Không có tài liệu nào phù hợp với từ khóa "<strong>${searchTerm}</strong>"</p>
+                            <div class="search-suggestions">
+                                <h4>Gợi ý:</h4>
+                                <ul>
+                                    <li>Kiểm tra lại chính tả từ khóa</li>
+                                    <li>Thử sử dụng từ khóa khác</li>
+                                    <li>Sử dụng ít từ khóa hơn</li>
+                                    <li>Thử tìm kiếm theo danh mục cụ thể</li>
+                                </ul>
+                            </div>
+                        </div>
+                    `
+                        : ""
+                    }
+
+                    ${
+                      totalPosts > 0
+                        ? `
                     <ul class="news-list">
                         ${displayPosts
                           .map(
@@ -374,20 +423,42 @@ function generateHomePage(
                                      <span class="news-date">Ngày đăng: ${moment(
                                        post.created_at
                                      ).format("DD/MM/YYYY")}</span>
+                                        ${
+                                          post.category_name
+                                            ? `<span class="news-category">${
+                                                post.category_icon || "📋"
+                                              } ${post.category_name}</span>`
+                                            : ""
+                                        }
+                                        ${
+                                          searchTerm && post.file_name
+                                            ? `<span class="news-file">📎 ${post.file_name}</span>`
+                                            : ""
+                                        }
+                                    </div>
                                     ${
-                                      post.category_name
-                                        ? `<span class="news-category">${
-                                            post.category_icon || "📋"
-                                          } ${post.category_name}</span>`
+                                      searchTerm && post.content
+                                        ? `<div class="search-snippet">
+                                            ${
+                                              post.content.length > 150
+                                                ? post.content.substring(
+                                                    0,
+                                                    150
+                                                  ) + "..."
+                                                : post.content
+                                            }
+                                          </div>`
                                         : ""
                                     }
                                 </div>
-                            </div>
                         </li>
                         `
                           )
                           .join("")}
                     </ul>
+                    `
+                        : ""
+                    }
 
                     ${
                       totalPages > 1
