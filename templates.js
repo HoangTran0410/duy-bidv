@@ -1180,6 +1180,7 @@ function generateEditPage(post, session, categories = []) {
 
 // History Page Template
 function generateHistoryPage(post, history, session, categories = []) {
+  console.log(post);
   return `
 <!DOCTYPE html>
 <html lang="vi">
@@ -1874,6 +1875,7 @@ function generateAdminBannersPage(banners, session, categories = []) {
                     <th>ID</th>
                     <th>Hình ảnh</th>
                     <th>Tiêu đề</th>
+                    <th>Ghi chú</th>
                     <th>Link</th>
                     <th>Thời gian</th>
                     <th>Thứ tự</th>
@@ -1889,10 +1891,11 @@ function generateAdminBannersPage(banners, session, categories = []) {
                     <td>${banner.id}</td>
                     <td>
                         <img src="/${banner.image_path}" alt="${banner.title}"
-                             style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px;"
+                             style="width: 120px; height: 80px; object-fit: cover; border-radius: 4px;"
                              onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2RkZCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5OQTwvdGV4dD48L3N2Zz4='; this.alt='Image not found';">
                     </td>
                     <td>${banner.title}</td>
+                    <td>${banner.note}</td>
                     <td>${
                       banner.link_url
                         ? `<a href="${banner.link_url}" target="_blank">🔗 Link</a>`
@@ -2277,107 +2280,8 @@ function generateAdminExchangeRatesPage(
 
   const scripts = `
     <style>
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto;
-            padding: 0;
-            border: 1px solid #888;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 600px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .modal-header {
-            background: var(--bidv-green);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 8px 8px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .modal-header h4 {
-            margin: 0;
-            font-size: 18px;
-        }
-        .modal-close {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-            padding: 0;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-close:hover {
-            background: rgba(255,255,255,0.2);
-            border-radius: 4px;
-        }
         #editRateForm {
             padding: 20px;
-        }
-        .form-row {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        .form-row .form-group {
-            flex: 1;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #333;
-        }
-        .form-group input[type="text"],
-        .form-group input[type="number"],
-        .form-group input[type="date"] {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .form-group input[readonly] {
-            background-color: #f5f5f5;
-            color: #666;
-        }
-        .form-actions {
-            margin-top: 20px;
-            text-align: right;
-        }
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .btn-primary {
-            background: var(--bidv-green);
-            color: white;
-        }
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        .btn:hover {
-            opacity: 0.9;
         }
     </style>
     <script>

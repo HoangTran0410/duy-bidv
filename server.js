@@ -1920,20 +1920,26 @@ app.get("/history/:id", requireAuth, (req, res) => {
         return res.status(500).send("Lỗi database");
       }
 
-      db.get("SELECT title FROM posts WHERE id = ?", [postId], (err, post) => {
-        if (err || !post) {
-          return res.status(404).send("Bài đăng không tồn tại!");
-        }
-
-        // Get categories for navigation
-        getCategories((err, categories) => {
-          if (err) {
-            console.error(err);
-            categories = [];
+      db.get(
+        "SELECT title, id FROM posts WHERE id = ?",
+        [postId],
+        (err, post) => {
+          if (err || !post) {
+            return res.status(404).send("Bài đăng không tồn tại!");
           }
-          res.send(generateHistoryPage(post, history, req.session, categories));
-        });
-      });
+
+          // Get categories for navigation
+          getCategories((err, categories) => {
+            if (err) {
+              console.error(err);
+              categories = [];
+            }
+            res.send(
+              generateHistoryPage(post, history, req.session, categories)
+            );
+          });
+        }
+      );
     }
   );
 });
