@@ -283,6 +283,32 @@ body {
   background: #2a5298;
 }
 
+/* Remember Me Checkbox */
+.login-form .remember-me {
+  margin: 15px 0;
+}
+
+.login-form .remember-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-dark);
+  margin-bottom: 0;
+}
+
+.login-form .remember-checkbox input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  transform: scale(1.2);
+  accent-color: #1e3c72;
+}
+
+.login-form .remember-checkbox:hover {
+  color: #1e3c72;
+}
+
 .login-footer {
   text-align: center;
   margin-top: 30px;

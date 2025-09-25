@@ -186,6 +186,14 @@ function generateLoginPage(error = "") {
                 <input type="password" id="password" name="password" required>
             </div>
 
+            <div class="form-group remember-me">
+                <label class="remember-checkbox">
+                    <input type="checkbox" name="remember_me" value="1">
+                    <span class="checkmark"></span>
+                    Ghi nhớ đăng nhập (30 ngày)
+                </label>
+            </div>
+
             <button type="submit" class="login-btn">Đăng nhập</button>
         </form>
 
@@ -244,9 +252,6 @@ function generateNavigation(session, currentPage = "", categories = []) {
         <div class="nav-right">
           <span class="user-info">
             <span class="user-name">${session.userName}</span>
-            <span class="user-role">(${
-              session.userRole === "admin" ? "Quản trị viên" : "Người dùng"
-            })</span>
           </span>
           <form action="/logout" method="POST" style="display: inline;">
             <button type="submit" class="logout-btn">Đăng xuất</button>

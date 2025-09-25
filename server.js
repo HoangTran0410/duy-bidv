@@ -1,5 +1,6 @@
 const express = require("express");
 const session = require("express-session");
+const SQLiteStore = require("connect-sqlite3")(session);
 const bcrypt = require("bcryptjs");
 const multer = require("multer");
 const sqlite3 = require("sqlite3").verbose();
@@ -25,15 +26,19 @@ app.use(express.static("public"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Session middleware
+// Session middleware with persistent storage
 app.use(
   session({
+    store: new SQLiteStore({
+      db: "sessions.db",
+      dir: "./",
+    }),
     secret: "bidv-intranet-secret-key-2024",
     resave: false,
     saveUninitialized: false,
     cookie: {
       secure: false, // set to true in production with HTTPS
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days for remember me
     },
   })
 );
@@ -252,7 +257,7 @@ app.get("/login", (req, res) => {
 });
 
 app.post("/login", (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, remember_me } = req.body;
 
   db.get(
     "SELECT * FROM users WHERE username = ? AND status = 'active'",
@@ -268,6 +273,18 @@ app.post("/login", (req, res) => {
         req.session.userRole = user.role;
         req.session.userName = user.full_name;
         req.session.userAvatar = user.avatar;
+
+        // Set session duration based on remember me checkbox
+        if (remember_me) {
+          req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+          console.log(
+            `User ${username} logged in with remember me for 30 days`
+          );
+        } else {
+          req.session.cookie.maxAge = 24 * 60 * 60 * 1000; // 24 hours
+          console.log(`User ${username} logged in for 24 hours`);
+        }
+
         res.redirect("/");
       } else {
         res.send(generateLoginPage("Tên đăng nhập hoặc mật khẩu không đúng!"));
