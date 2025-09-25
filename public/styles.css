@@ -636,21 +636,26 @@ body {
 
 .news-icon {
   color: var(--bidv-green);
-  font-size: 16px;
+  font-size: 25px;
   margin-top: 1px;
   min-width: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bidv-green-light);
-  width: 32px;
-  height: 32px;
+  width: 45px;
+  height: 45px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .news-content {
   flex: 1;
+}
+
+.news-content hr {
+  margin: 5px 0;
+  border: 0.5px solid var(--border-card);
 }
 
 .news-title {
@@ -676,14 +681,6 @@ body {
   gap: 15px;
   flex-wrap: wrap;
   margin-bottom: 6px;
-}
-
-.news-author::before {
-  content: "📝 ";
-}
-
-.news-date::before {
-  content: "📅 ";
 }
 
 .news-views {

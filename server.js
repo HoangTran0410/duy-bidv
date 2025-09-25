@@ -372,7 +372,7 @@ app.get("/", requireAuth, (req, res) => {
           }
 
           // Pagination settings
-          const postsPerPage = 3;
+          const postsPerPage = 5;
           const offset = (currentPage - 1) * postsPerPage;
 
           // Tạo count query để đếm tổng số posts
@@ -436,7 +436,8 @@ app.get("/", requireAuth, (req, res) => {
                   categories,
                   currentPage,
                   selectedCategory,
-                  totalPosts
+                  totalPosts,
+                  postsPerPage
                 )
               );
             });

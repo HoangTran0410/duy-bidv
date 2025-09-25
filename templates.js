@@ -270,9 +270,9 @@ function generateHomePage(
   categories = [],
   currentPage = 1,
   selectedCategory = null,
-  totalPosts = 0
+  totalPosts = 0,
+  postsPerPage = 3
 ) {
-  const postsPerPage = 3;
   const totalPages = Math.ceil(totalPosts / postsPerPage);
   const displayPosts = posts; // Posts already paginated from server
 
@@ -328,16 +328,14 @@ function generateHomePage(
                                 <a href="/post/${post.id}" class="news-title">${
                               post.title
                             }</a>
+                                <hr/>
                                 <div class="news-meta">
-                                    <span class="news-author">${
-                                      post.author_name || "Không xác định"
-                                    }</span>
-                                    <span class="news-date">Ngày đăng tài: ${moment(
-                                      post.created_at
-                                    ).format("DD/MM/YYYY")}</span>
-                                    <span class="news-views">👁 ${
+                                    <span class="news-views">${
                                       post.view_count || 0
-                                    } lượt xem</span>
+                                    } Lượt xem</span>
+                                     <span class="news-date">Ngày đăng: ${moment(
+                                       post.created_at
+                                     ).format("DD/MM/YYYY")}</span>
                                     ${
                                       post.category_name
                                         ? `<span class="news-category">${
@@ -346,58 +344,6 @@ function generateHomePage(
                                         : ""
                                     }
                                 </div>
-                                ${
-                                  post.content
-                                    ? `<div style="margin-top: 8px; font-size: 13px; color: var(--text-secondary); line-height: 1.4;">${post.content.substring(
-                                        0,
-                                        100
-                                      )}${
-                                        post.content.length > 100 ? "..." : ""
-                                      }</div>`
-                                    : ""
-                                }
-                                ${
-                                  post.file_name
-                                    ? `
-                                <div style="margin-top: 8px; display: flex; gap: 10px; align-items: center;">
-                                    <span style="font-size: 12px; color: var(--text-secondary);">📎 ${
-                                      post.file_name
-                                    }</span>
-                                    <a href="/download/${
-                                      post.id
-                                    }" style="font-size: 12px; color: var(--bidv-green); text-decoration: none;">Tải về</a>
-                                     ${
-                                       session.userRole === "admin" ||
-                                       post.user_id === session.userId
-                                         ? `<a href="/edit/${post.id}" style="font-size: 12px; color: var(--bidv-green); text-decoration: none;">Sửa</a>`
-                                         : ""
-                                     }
-                                     ${
-                                       session.userRole === "admin"
-                                         ? `<button onclick="deletePost(${post.id})" style="font-size: 12px; color: #dc3545; background: none; border: none; cursor: pointer;">Xóa</button>`
-                                         : ""
-                                     }
-                                </div>
-                                `
-                                    : `
-                                <div style="margin-top: 8px; display: flex; gap: 10px;">
-                                    ${
-                                      session.userRole === "admin" ||
-                                      post.user_id === session.userId
-                                        ? `<a href="/edit/${post.id}" style="font-size: 12px; color: var(--bidv-green); text-decoration: none;">Sửa</a>`
-                                        : ""
-                                    }
-                                    <a href="/history/${
-                                      post.id
-                                    }" style="font-size: 12px; color: var(--bidv-green); text-decoration: none;">Lịch sử</a>
-                                    ${
-                                      session.userRole === "admin"
-                                        ? `<button onclick="deletePost(${post.id})" style="font-size: 12px; color: var(--btn-danger); background: none; border: none; cursor: pointer;">Xóa</button>`
-                                        : ""
-                                    }
-                                </div>
-                                `
-                                }
                             </div>
                         </li>
                         `
@@ -469,22 +415,6 @@ function generateHomePage(
 
             <div class="content-right">
                 ${generateExchangeRatesWidget()}
-
-                <div style="margin-top: 30px;">
-                    <div class="section-header">
-                        THÔNG TIN CHUNG
-                    </div>
-                    <div style="padding: 15px 0;">
-                        <p style="font-size: 13px; color: #666; line-height: 1.5;">
-                            Portal nội bộ dành cho việc chia sẻ tài liệu, thông báo và thông tin quan trọng của ngân hàng.
-                        </p>
-                        <hr style="margin: 15px 0; border: none; border-top: 1px solid #f0f0f0;">
-                        <p style="font-size: 12px; color: #999;">
-                            © 2024 Ngân hàng TMCP Đầu tư và Phát triển Việt Nam<br>
-                            Chi nhánh Quận 7 Sài Gòn
-                        </p>
-                    </div>
-                </div>
             </div>
         </main>
     </div>
