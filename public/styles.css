@@ -354,12 +354,10 @@ body {
 }
 
 .bidv-logo {
-  background: var(--bidv-green);
-  color: var(--text-white);
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-weight: bold;
-  font-size: 18px;
+  height: 55px;
+  width: auto;
+  max-width: 130px;
+  object-fit: contain;
 }
 
 .bank-name {
@@ -769,7 +767,9 @@ body {
 
 /* Pagination Styles */
 .pagination-container {
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-top: 20px;
   padding: 15px;
   background: var(--bg-light);
@@ -786,7 +786,7 @@ body {
 .pagination a,
 .pagination span {
   display: inline-block;
-  padding: 8px 12px;
+  padding: 8px 8px;
   margin: 0 2px;
   border: 1px solid var(--border-gray);
   color: var(--bidv-green);
@@ -816,6 +816,18 @@ body {
   color: var(--gray-400);
   pointer-events: none;
   border-color: var(--gray-200);
+}
+
+/* Post count styling */
+.post-count {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.post-count strong {
+  color: var(--bidv-green);
+  font-weight: 600;
 }
 
 .news-count {

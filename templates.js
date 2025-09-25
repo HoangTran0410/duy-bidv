@@ -251,10 +251,10 @@ function generateNavigation(session, currentPage = "", categories = []) {
     <header class="bidv-header">
       <div class="bidv-header-content">
         <div class="bidv-logo-section">
-          <div class="bidv-logo">BIDV</div>
+          <img src="/logo.png" alt="BIDV Logo" class="bidv-logo">
           <div>
             <div class="bank-name">NGÂN HÀNG TMCP ĐẦU TƯ VÀ PHÁT TRIỂN VIỆT NAM</div>
-            <div class="branch-name">CN QUẬN 7 SÀI GÒN</div>
+            <div class="branch-name">CHI NHÁNH SỞ GIAO DỊCH 2</div>
           </div>
         </div>
         <div class="header-right">
@@ -371,12 +371,6 @@ function generateHomePage(
                     }
 
                     ${
-                      !searchTerm
-                        ? `<div class="news-count">${totalPosts} bài</div>`
-                        : ""
-                    }
-
-                    ${
                       searchTerm && totalPosts === 0
                         ? `
                         <div class="no-results">
@@ -461,6 +455,9 @@ function generateHomePage(
                       totalPages > 1
                         ? `
                     <div class="pagination-container">
+                        <div class="post-count">
+                            Tổng cộng: <strong>${totalPosts}</strong> bài viết
+                        </div>
                         <div class="pagination">
                             ${
                               currentPage > 1
