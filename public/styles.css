@@ -581,7 +581,7 @@ body {
 }
 
 .content-left {
-  background: var(--bg-white);
+  background: var(--bg-light);
   padding: 20px;
 }
 
@@ -609,25 +609,44 @@ body {
 .news-list {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
 
 .news-item {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 15px 0;
-  border-bottom: 1px solid var(--border-muted);
+  padding: 15px;
+  margin-bottom: 10px;
+  background: var(--bg-white);
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.news-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
 }
 
 .news-item:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .news-icon {
-  color: #ff6b35;
+  color: var(--bidv-green);
   font-size: 16px;
-  margin-top: 2px;
+  margin-top: 1px;
   min-width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bidv-green-light);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .news-content {
@@ -635,17 +654,19 @@ body {
 }
 
 .news-title {
-  color: var(--bidv-green);
+  color: var(--text-primary);
   text-decoration: none;
-  font-weight: normal;
-  font-size: 14px;
+  font-weight: 600;
+  font-size: 15px;
   line-height: 1.4;
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
+  transition: color 0.3s ease;
 }
 
 .news-title:hover {
-  text-decoration: underline;
+  color: var(--bidv-green);
+  text-decoration: none;
 }
 
 .news-meta {
@@ -654,6 +675,7 @@ body {
   display: flex;
   gap: 15px;
   flex-wrap: wrap;
+  margin-bottom: 6px;
 }
 
 .news-author::before {
@@ -746,8 +768,10 @@ body {
 .pagination-container {
   text-align: center;
   margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border-muted);
+  padding: 15px;
+  background: var(--bg-light);
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
 }
 
 .pagination {
@@ -765,8 +789,11 @@ body {
   color: var(--bidv-green);
   text-decoration: none;
   border-radius: 4px;
-  font-size: 14px;
-  transition: all 0.3s;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: 36px;
+  text-align: center;
 }
 
 .pagination a:hover {
@@ -778,6 +805,8 @@ body {
   background: var(--bidv-green);
   color: var(--text-white);
   border-color: var(--bidv-green);
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 84, 82, 0.3);
 }
 
 .pagination .disabled {
@@ -787,9 +816,14 @@ body {
 }
 
 .news-count {
-  color: var(--text-secondary);
+  color: var(--bidv-green);
   font-size: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
+  font-weight: 500;
+  padding: 6px 10px;
+  background: var(--bidv-green-light);
+  border-radius: 12px;
+  display: inline-block;
 }
 
 .page-header {

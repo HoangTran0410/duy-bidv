@@ -316,6 +316,7 @@ app.post("/logout", (req, res) => {
 // Trang chủ
 app.get("/", requireAuth, (req, res) => {
   const selectedCategory = req.query.category || null;
+  const currentPage = parseInt(req.query.page) || 1;
 
   // Lấy thông báo admin
   db.get(
@@ -339,48 +340,75 @@ app.get("/", requireAuth, (req, res) => {
             return res.status(500).send("Lỗi database");
           }
 
-          // Tạo query cho posts với filter category
-          let postsQuery = `
-            SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
-                   c.name as category_name, c.icon as category_icon
-            FROM posts p
-            LEFT JOIN users u ON p.user_id = u.id
-            LEFT JOIN categories c ON p.category_id = c.id
-          `;
-          let queryParams = [];
+          // Pagination settings
+          const postsPerPage = 3;
+          const offset = (currentPage - 1) * postsPerPage;
+
+          // Tạo count query để đếm tổng số posts
+          let countQuery = `SELECT COUNT(*) as total FROM posts p`;
+          let countParams = [];
 
           if (selectedCategory) {
-            postsQuery += " WHERE p.category_id = ?";
-            queryParams.push(selectedCategory);
+            countQuery += " WHERE p.category_id = ?";
+            countParams.push(selectedCategory);
           }
 
-          postsQuery += " ORDER BY p.created_at DESC LIMIT 20";
-
-          // Lấy danh sách posts mới nhất với thông tin user và category
-          db.all(postsQuery, queryParams, (err, posts) => {
+          // Đếm tổng số posts trước
+          db.get(countQuery, countParams, (err, countResult) => {
             if (err) {
               console.error(err);
               return res.status(500).send("Lỗi database");
             }
 
-            // Format thời gian
-            posts.forEach((post) => {
-              post.formatted_date = moment(post.created_at).format(
-                "DD/MM/YYYY HH:mm"
-              );
-              post.file_size_mb = post.file_size
-                ? (post.file_size / (1024 * 1024)).toFixed(2)
-                : null;
-            });
+            const totalPosts = countResult.total;
 
-            res.send(
-              generateHomePage(
-                posts,
-                announcement ? announcement.value : "",
-                req.session,
-                categories
-              )
-            );
+            // Tạo query cho posts với filter category và pagination
+            let postsQuery = `
+              SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
+                     c.name as category_name, c.icon as category_icon
+              FROM posts p
+              LEFT JOIN users u ON p.user_id = u.id
+              LEFT JOIN categories c ON p.category_id = c.id
+            `;
+            let queryParams = [];
+
+            if (selectedCategory) {
+              postsQuery += " WHERE p.category_id = ?";
+              queryParams.push(selectedCategory);
+            }
+
+            postsQuery += " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
+            queryParams.push(postsPerPage, offset);
+
+            // Lấy danh sách posts cho page hiện tại
+            db.all(postsQuery, queryParams, (err, posts) => {
+              if (err) {
+                console.error(err);
+                return res.status(500).send("Lỗi database");
+              }
+
+              // Format thời gian
+              posts.forEach((post) => {
+                post.formatted_date = moment(post.created_at).format(
+                  "DD/MM/YYYY HH:mm"
+                );
+                post.file_size_mb = post.file_size
+                  ? (post.file_size / (1024 * 1024)).toFixed(2)
+                  : null;
+              });
+
+              res.send(
+                generateHomePage(
+                  posts,
+                  announcement ? announcement.value : "",
+                  req.session,
+                  categories,
+                  currentPage,
+                  selectedCategory,
+                  totalPosts
+                )
+              );
+            });
           });
         }
       );

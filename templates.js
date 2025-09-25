@@ -263,10 +263,26 @@ function generateNavigation(session, currentPage = "", categories = []) {
 }
 
 // Home Page Template
-function generateHomePage(posts, announcement, session, categories = []) {
-  const currentPage = 1;
-  const totalPages = Math.ceil(posts.length / 5);
-  const displayPosts = posts.slice(0, 5); // Show only first 5 posts
+function generateHomePage(
+  posts,
+  announcement,
+  session,
+  categories = [],
+  currentPage = 1,
+  selectedCategory = null,
+  totalPosts = 0
+) {
+  const postsPerPage = 3;
+  const totalPages = Math.ceil(totalPosts / postsPerPage);
+  const displayPosts = posts; // Posts already paginated from server
+
+  // Build query string for pagination links
+  const buildPageUrl = (page) => {
+    const params = new URLSearchParams();
+    if (selectedCategory) params.set("category", selectedCategory);
+    params.set("page", page);
+    return "?" + params.toString();
+  };
 
   return `
 <!DOCTYPE html>
@@ -285,7 +301,7 @@ function generateHomePage(posts, announcement, session, categories = []) {
             <div class="content-left">
                 <div class="news-section">
                     <div class="section-header">
-                        THÔNG TIN NỘI BẬT
+                        THÔNG TIN NỔI BẬT
                     </div>
 
                     ${
@@ -298,7 +314,9 @@ function generateHomePage(posts, announcement, session, categories = []) {
                         : ""
                     }
 
-                    <div class="news-count">${posts.length} item</div>
+                    <div class="news-count">${totalPosts} item${
+    totalPosts !== 1 ? "s" : ""
+  }</div>
 
                     <ul class="news-list">
                         ${displayPosts
@@ -390,19 +408,49 @@ function generateHomePage(posts, announcement, session, categories = []) {
                     </ul>
 
                     ${
-                      posts.length > 5
+                      totalPages > 1
                         ? `
                     <div class="pagination-container">
                         <div class="pagination">
-                            <a href="#" class="disabled">‹</a>
-                            <span class="current">1</span>
-                            <a href="#">2</a>
-                            <a href="#">3</a>
-                            <a href="#">4</a>
-                            <a href="#">5</a>
-                            <span>...</span>
-                            <a href="#">45</a>
-                            <a href="#">›</a>
+                            ${
+                              currentPage > 1
+                                ? `<a href="${buildPageUrl(
+                                    currentPage - 1
+                                  )}">‹</a>`
+                                : '<span class="disabled">‹</span>'
+                            }
+                            ${Array.from(
+                              { length: Math.min(totalPages, 7) },
+                              (_, i) => {
+                                const pageNum = i + 1;
+                                if (pageNum === currentPage) {
+                                  return `<span class="current">${pageNum}</span>`;
+                                } else {
+                                  return `<a href="${buildPageUrl(
+                                    pageNum
+                                  )}">${pageNum}</a>`;
+                                }
+                              }
+                            ).join("")}
+                            ${
+                              totalPages > 7 && currentPage < totalPages - 3
+                                ? "<span>...</span>"
+                                : ""
+                            }
+                            ${
+                              totalPages > 7 && currentPage < totalPages - 2
+                                ? `<a href="${buildPageUrl(
+                                    totalPages
+                                  )}">${totalPages}</a>`
+                                : ""
+                            }
+                            ${
+                              currentPage < totalPages
+                                ? `<a href="${buildPageUrl(
+                                    currentPage + 1
+                                  )}">›</a>`
+                                : '<span class="disabled">›</span>'
+                            }
                         </div>
                     </div>
                     `
@@ -410,7 +458,7 @@ function generateHomePage(posts, announcement, session, categories = []) {
                     }
 
                     ${
-                      posts.length === 0
+                      totalPosts === 0
                         ? '<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-style: italic;">Chưa có tài liệu nào được đăng.</div>'
                         : ""
                     }
