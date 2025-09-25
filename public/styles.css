@@ -1027,7 +1027,8 @@ body {
 .file-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .file-icon {
@@ -1370,6 +1371,317 @@ body {
   margin-bottom: 20px;
 }
 
+/* Post Detail Page Styles */
+.post-detail-main {
+  background: var(--bg-white);
+  padding: 30px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.post-detail-header {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--border-light);
+}
+
+.breadcrumb {
+  margin-bottom: 15px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.breadcrumb a {
+  color: var(--bidv-green);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb span {
+  margin: 0 8px;
+}
+
+.post-detail-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.post-category {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bidv-green-light);
+  padding: 8px 12px;
+  border-radius: 20px;
+  color: var(--bidv-green);
+  font-weight: 500;
+}
+
+.post-stats {
+  display: flex;
+  gap: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.post-detail-content h1.post-title {
+  color: var(--text-primary);
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  line-height: 1.3;
+}
+
+.post-description {
+  margin-bottom: 30px;
+}
+
+.post-description h3 {
+  color: var(--bidv-green);
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+
+.post-content {
+  background: var(--bg-light);
+  padding: 20px;
+  border-radius: 8px;
+  border-left: 4px solid var(--bidv-green);
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.post-file-section {
+  margin-bottom: 30px;
+}
+
+.post-file-section h3 {
+  color: var(--bidv-green);
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.file-info-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px;
+  background: var(--bg-light);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-light);
+}
+
+.file-info-header .file-name {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* File Preview Styles */
+.file-preview {
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-white);
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+  background: var(--bg-light);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.preview-header .file-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-left: 8px;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.file-download-only {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
+}
+
+.file-icon-large {
+  font-size: 4rem;
+  margin-bottom: 15px;
+}
+
+.file-download-only .file-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.file-note {
+  margin-bottom: 20px;
+  font-style: italic;
+}
+
+.post-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}
+
+/* Local File Viewers */
+.excel-container,
+.word-container {
+  background: var(--bg-white);
+  border-radius: 4px;
+  min-height: 400px;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.error-message {
+  text-align: center;
+  padding: 40px;
+  color: var(--btn-danger);
+  background: var(--bg-light);
+  border-radius: 4px;
+}
+
+/* Excel Viewer Styles */
+.excel-sheets {
+  width: 100%;
+}
+
+.sheet-tabs {
+  display: flex;
+  background: var(--bg-light);
+  border-bottom: 1px solid var(--border-light);
+  overflow-x: auto;
+}
+
+.sheet-tab {
+  padding: 10px 15px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.sheet-tab:hover {
+  background: var(--bg-white);
+  color: var(--text-primary);
+}
+
+.sheet-tab.active {
+  background: var(--bg-white);
+  color: var(--bidv-green);
+  border-bottom-color: var(--bidv-green);
+  font-weight: 600;
+}
+
+.sheet-content {
+  display: none;
+  padding: 20px;
+  overflow: auto;
+  max-height: 500px;
+}
+
+.sheet-content.active {
+  display: block;
+}
+
+.sheet-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.sheet-content td,
+.sheet-content th {
+  border: 1px solid var(--border-light);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.sheet-content th {
+  background: var(--bg-light);
+  font-weight: 600;
+}
+
+/* Word Viewer Styles */
+.word-content {
+  padding: 20px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  max-height: 500px;
+  overflow-y: auto;
+  background: var(--bg-white);
+}
+
+.word-content h1,
+.word-content h2,
+.word-content h3,
+.word-content h4,
+.word-content h5,
+.word-content h6 {
+  color: var(--text-primary);
+  margin: 15px 0 10px 0;
+}
+
+.word-content p {
+  margin: 10px 0;
+}
+
+.word-content ul,
+.word-content ol {
+  margin: 10px 0;
+  padding-left: 30px;
+}
+
+.word-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+}
+
+.word-content table td,
+.word-content table th {
+  border: 1px solid var(--border-light);
+  padding: 8px;
+  text-align: left;
+}
+
+.word-content table th {
+  background: var(--bg-light);
+  font-weight: 600;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .bidv-header-content {
@@ -1452,6 +1764,36 @@ body {
   .data-table th,
   .data-table td {
     padding: 8px;
+  }
+
+  /* Post Detail Responsive */
+  .post-detail-main {
+    padding: 20px 15px;
+  }
+
+  .post-detail-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .post-stats {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .post-detail-content h1.post-title {
+    font-size: 1.5rem;
+  }
+
+  .post-actions {
+    flex-direction: column;
+  }
+
+  .preview-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
   }
 }
 

@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "kill": "kill $(lsof -t -i:3000)"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -13,10 +14,12 @@
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "fs": "^0.0.1-security",
+    "mammoth": "^1.11.0",
     "moment": "^2.29.4",
     "multer": "^1.4.5-lts.1",
     "path": "^0.12.7",
-    "sqlite3": "^5.1.6"
+    "sqlite3": "^5.1.6",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

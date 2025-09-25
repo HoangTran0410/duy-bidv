@@ -7,6 +7,8 @@ const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 const fs = require("fs");
 const moment = require("moment");
+const XLSX = require("xlsx");
+const mammoth = require("mammoth");
 const {
   generateLoginPage,
   generateHomePage,
@@ -16,6 +18,7 @@ const {
   generateEditPage,
   generateHistoryPage,
   generateNoPermissionPage,
+  generatePostDetailPage,
 } = require("./templates");
 
 const app = express();
@@ -25,6 +28,13 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static("public"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// Set charset to UTF-8 for proper Vietnamese character handling
+app.use((req, res, next) => {
+  res.charset = "utf-8";
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  next();
+});
 
 // Session middleware with persistent storage
 app.use(
@@ -44,9 +54,16 @@ app.use(
 );
 
 // Tạo thư mục uploads nếu chưa có
+// Đảm bảo folder uploads và deleted tồn tại
 const uploadsDir = path.join(__dirname, "uploads");
+const deletedDir = path.join(__dirname, "deleted");
+
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+if (!fs.existsSync(deletedDir)) {
+  fs.mkdirSync(deletedDir, { recursive: true });
 }
 
 // Cấu hình multer cho upload file
@@ -55,22 +72,36 @@ const storage = multer.diskStorage({
     cb(null, "uploads/");
   },
   filename: (req, file, cb) => {
+    // Fix UTF-8 encoding for Vietnamese file names
+    const originalName = Buffer.from(file.originalname, "latin1").toString(
+      "utf8"
+    );
+
+    // Sanitize filename for safety while preserving Vietnamese characters
+    const sanitizedName = originalName
+      .replace(/[<>:"/\\|?*]/g, "") // Remove invalid characters
+      .replace(/\s+/g, "_"); // Replace spaces with underscores
+
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + "-" + file.originalname);
+    cb(null, uniqueSuffix + "-" + sanitizedName);
   },
 });
 
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 500 * 1024 * 1024, // 50MB limit
   },
   fileFilter: (req, file, cb) => {
     // Chấp nhận các loại file phổ biến
-    const allowedTypes = /pdf|doc|docx|txt|jpg|jpeg|png|gif|zip|rar/;
-    const extname = allowedTypes.test(
-      path.extname(file.originalname).toLowerCase()
+    const allowedTypes =
+      /pdf|doc|docx|xls|xlsx|txt|jpg|jpeg|png|gif|zip|rar|mp4|mp3|wav|webm|ogg|webp/;
+
+    // Fix UTF-8 encoding for file extension check
+    const originalName = Buffer.from(file.originalname, "latin1").toString(
+      "utf8"
     );
+    const extname = allowedTypes.test(path.extname(originalName).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
 
     if (mimetype && extname) {
@@ -78,7 +109,7 @@ const upload = multer({
     } else {
       cb(
         new Error(
-          "Chỉ chấp nhận file PDF, DOC, DOCX, TXT, hình ảnh và file nén!"
+          "Chỉ chấp nhận file PDF, DOC, DOCX, Excel (XLS/XLSX), TXT, hình ảnh, video, audio và file nén!"
         )
       );
     }
@@ -476,7 +507,10 @@ app.post("/upload", requireAuth, upload.single("file"), (req, res) => {
       }
 
       const filePath = file ? file.path : null;
-      const fileName = file ? file.originalname : null;
+      // Fix UTF-8 encoding for Vietnamese file names in database
+      const fileName = file
+        ? Buffer.from(file.originalname, "latin1").toString("utf8")
+        : null;
       const fileSize = file ? file.size : null;
 
       db.run(
@@ -559,33 +593,53 @@ app.get("/post/:id", requireAuth, (req, res) => {
     }
   );
 
-  // Get post details
-  db.get(
-    `SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
-            c.name as category_name, c.icon as category_icon
-     FROM posts p
-     LEFT JOIN users u ON p.user_id = u.id
-     LEFT JOIN categories c ON p.category_id = c.id
-     WHERE p.id = ?`,
-    [postId],
-    (err, post) => {
+  // Get categories for navigation
+  db.all(
+    `SELECT c.*, COUNT(p.id) as post_count
+     FROM categories c
+     LEFT JOIN posts p ON c.id = p.category_id
+     GROUP BY c.id
+     ORDER BY c.name`,
+    (err, categories) => {
       if (err) {
         console.error(err);
         return res.status(500).send("Lỗi database");
       }
 
-      if (!post) {
-        return res.status(404).send("Bài viết không tồn tại!");
-      }
+      // Get post details
+      db.get(
+        `SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
+                c.name as category_name, c.icon as category_icon
+         FROM posts p
+         LEFT JOIN users u ON p.user_id = u.id
+         LEFT JOIN categories c ON p.category_id = c.id
+         WHERE p.id = ?`,
+        [postId],
+        (err, post) => {
+          if (err) {
+            console.error(err);
+            return res.status(500).send("Lỗi database");
+          }
 
-      // Redirect back to home page for now, later we can create a dedicated post view
-      res.redirect("/");
+          if (!post) {
+            return res.status(404).send("Bài viết không tồn tại!");
+          }
+
+          // Format date
+          post.formatted_date = moment(post.created_at).format(
+            "DD/MM/YYYY HH:mm"
+          );
+
+          // Show post detail page
+          res.send(generatePostDetailPage(post, req.session, categories));
+        }
+      );
     }
   );
 });
 
-// Download file
-app.get("/download/:id", requireAuth, (req, res) => {
+// Convert Excel file to HTML for preview
+app.get("/preview/excel/:id", requireAuth, (req, res) => {
   const postId = req.params.id;
 
   db.get("SELECT * FROM posts WHERE id = ?", [postId], (err, post) => {
@@ -600,14 +654,126 @@ app.get("/download/:id", requireAuth, (req, res) => {
 
     const filePath = path.join(__dirname, post.file_path);
     if (fs.existsSync(filePath)) {
-      res.download(filePath, post.file_name);
+      try {
+        const workbook = XLSX.readFile(filePath);
+        const sheetNames = workbook.SheetNames;
+        const worksheets = {};
+
+        sheetNames.forEach((sheetName) => {
+          const worksheet = workbook.Sheets[sheetName];
+          worksheets[sheetName] = XLSX.utils.sheet_to_html(worksheet);
+        });
+
+        res.json({
+          fileName: post.file_name,
+          sheets: sheetNames,
+          data: worksheets,
+        });
+      } catch (error) {
+        console.error("Excel preview error:", error);
+        res.status(500).send("Không thể preview file Excel");
+      }
     } else {
       res.status(404).send("File không tìm thấy!");
     }
   });
 });
 
-// Xóa post
+// Convert Word file to HTML for preview
+app.get("/preview/word/:id", requireAuth, (req, res) => {
+  const postId = req.params.id;
+
+  db.get("SELECT * FROM posts WHERE id = ?", [postId], (err, post) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send("Lỗi database");
+    }
+
+    if (!post || !post.file_path) {
+      return res.status(404).send("File không tồn tại!");
+    }
+
+    const filePath = path.join(__dirname, post.file_path);
+    if (fs.existsSync(filePath)) {
+      mammoth
+        .convertToHtml({ path: filePath })
+        .then((result) => {
+          res.json({
+            fileName: post.file_name,
+            html: result.value,
+            messages: result.messages,
+          });
+        })
+        .catch((error) => {
+          console.error("Word preview error:", error);
+          res.status(500).send("Không thể preview file Word");
+        });
+    } else {
+      res.status(404).send("File không tìm thấy!");
+    }
+  });
+});
+
+// Download file
+app.get("/download/:id", requireAuth, (req, res) => {
+  const postId = req.params.id;
+  const download = req.query.download === "true"; // Check if forced download
+
+  db.get("SELECT * FROM posts WHERE id = ?", [postId], (err, post) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send("Lỗi database");
+    }
+
+    if (!post || !post.file_path) {
+      return res.status(404).send("File không tồn tại!");
+    }
+
+    const filePath = path.join(__dirname, post.file_path);
+    if (fs.existsSync(filePath)) {
+      // Get file extension to set proper content type
+      const ext = post.file_name.toLowerCase().split(".").pop();
+
+      // Set content type based on file extension
+      const contentTypes = {
+        pdf: "application/pdf",
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        gif: "image/gif",
+        webp: "image/webp",
+        mp4: "video/mp4",
+        webm: "video/webm",
+        ogg: "video/ogg",
+        mp3: "audio/mpeg",
+        wav: "audio/wav",
+        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        xls: "application/vnd.ms-excel",
+        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        doc: "application/msword",
+      };
+
+      const contentType = contentTypes[ext] || "application/octet-stream";
+
+      if (download) {
+        // Force download
+        res.download(filePath, post.file_name);
+      } else {
+        // Allow inline viewing
+        res.setHeader("Content-Type", contentType);
+        res.setHeader(
+          "Content-Disposition",
+          `inline; filename="${post.file_name}"`
+        );
+        res.sendFile(filePath);
+      }
+    } else {
+      res.status(404).send("File không tìm thấy!");
+    }
+  });
+});
+
+// Xóa post (move file to deleted folder)
 app.post("/delete/:id", requireAuth, (req, res) => {
   const postId = req.params.id;
 
@@ -617,10 +783,24 @@ app.post("/delete/:id", requireAuth, (req, res) => {
       return res.status(500).send("Lỗi database");
     }
 
+    // Move file to deleted folder instead of deleting
     if (post && post.file_path) {
       const filePath = path.join(__dirname, post.file_path);
       if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+        try {
+          // Create unique filename in deleted folder with timestamp
+          const fileName = path.basename(filePath);
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+          const deletedFileName = `${timestamp}_postId-${postId}_${fileName}`;
+          const deletedFilePath = path.join(deletedDir, deletedFileName);
+
+          // Move file to deleted folder
+          fs.renameSync(filePath, deletedFilePath);
+          console.log(`File moved to deleted folder: ${deletedFileName}`);
+        } catch (moveError) {
+          console.error("Error moving file to deleted folder:", moveError);
+          // Continue with post deletion even if file move fails
+        }
       }
     }
 
@@ -632,6 +812,147 @@ app.post("/delete/:id", requireAuth, (req, res) => {
       res.redirect("/");
     });
   });
+});
+
+// Deleted files management route
+app.get("/admin/deleted", requireAdmin, (req, res) => {
+  try {
+    const deletedFiles = fs
+      .readdirSync(deletedDir)
+      .map((fileName) => {
+        const filePath = path.join(deletedDir, fileName);
+        const stats = fs.statSync(filePath);
+
+        // Parse filename to extract info
+        const parts = fileName.split("_");
+        const timestamp = parts[0];
+        const postIdPart = parts[1] || "";
+        const originalName = parts.slice(2).join("_") || fileName;
+
+        return {
+          fileName: fileName,
+          originalName: originalName,
+          timestamp: timestamp,
+          postId: postIdPart.replace("postId-", ""),
+          size: stats.size,
+          deletedAt: stats.ctime,
+        };
+      })
+      .sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="vi">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Quản lý file đã xóa - BIDV Intranet Portal</title>
+          <link rel="stylesheet" href="/styles.css">
+      </head>
+      <body>
+          <div class="container">
+              <div class="page-header">
+                  <h2>Quản lý file đã xóa</h2>
+                  <a href="/admin" class="btn btn-secondary">Quay lại Admin</a>
+              </div>
+
+              <div class="deleted-files-table">
+                  <table class="data-table">
+                      <thead>
+                          <tr>
+                              <th>Tên file gốc</th>
+                              <th>Post ID</th>
+                              <th>Kích thước</th>
+                              <th>Ngày xóa</th>
+                              <th>Thao tác</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          ${deletedFiles
+                            .map(
+                              (file) => `
+                              <tr>
+                                  <td>${file.originalName}</td>
+                                  <td>${file.postId}</td>
+                                  <td>${(file.size / 1024 / 1024).toFixed(
+                                    2
+                                  )} MB</td>
+                                  <td>${moment(file.deletedAt).format(
+                                    "DD/MM/YYYY HH:mm"
+                                  )}</td>
+                                  <td>
+                                      <a href="/admin/deleted/download/${
+                                        file.fileName
+                                      }" class="btn btn-sm btn-download">Tải về</a>
+                                      <button onclick="permanentDelete('${
+                                        file.fileName
+                                      }')" class="btn btn-sm btn-danger">Xóa vĩnh viễn</button>
+                                  </td>
+                              </tr>
+                          `
+                            )
+                            .join("")}
+                      </tbody>
+                  </table>
+
+                  ${
+                    deletedFiles.length === 0
+                      ? '<p style="text-align: center; color: #666; margin-top: 40px;">Không có file nào đã bị xóa.</p>'
+                      : ""
+                  }
+              </div>
+          </div>
+
+          <script>
+              function permanentDelete(fileName) {
+                  if (confirm('Bạn có chắc muốn xóa vĩnh viễn file này? Hành động này không thể hoàn tác!')) {
+                      fetch('/admin/deleted/permanent/' + encodeURIComponent(fileName), { method: 'DELETE' })
+                          .then(() => location.reload());
+                  }
+              }
+          </script>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error("Error reading deleted files:", error);
+    res.status(500).send("Lỗi khi đọc thư mục file đã xóa");
+  }
+});
+
+// Download deleted file
+app.get("/admin/deleted/download/:fileName", requireAdmin, (req, res) => {
+  const fileName = req.params.fileName;
+  const filePath = path.join(deletedDir, fileName);
+
+  if (fs.existsSync(filePath)) {
+    // Extract original name for download
+    const parts = fileName.split("_");
+    const originalName = parts.slice(2).join("_") || fileName;
+
+    res.download(filePath, originalName);
+  } else {
+    res.status(404).send("File đã xóa không tồn tại!");
+  }
+});
+
+// Permanently delete file
+app.delete("/admin/deleted/permanent/:fileName", requireAdmin, (req, res) => {
+  const fileName = req.params.fileName;
+  const filePath = path.join(deletedDir, fileName);
+
+  if (fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+      console.log(`Permanently deleted file: ${fileName}`);
+      res.status(200).send("File đã được xóa vĩnh viễn");
+    } catch (error) {
+      console.error("Error permanently deleting file:", error);
+      res.status(500).send("Lỗi khi xóa file vĩnh viễn");
+    }
+  } else {
+    res.status(404).send("File không tồn tại!");
+  }
 });
 
 // User management routes

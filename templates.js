@@ -314,9 +314,7 @@ function generateHomePage(
                         : ""
                     }
 
-                    <div class="news-count">${totalPosts} item${
-    totalPosts !== 1 ? "s" : ""
-  }</div>
+                    <div class="news-count">${totalPosts} bài</div>
 
                     <ul class="news-list">
                         ${displayPosts
@@ -553,8 +551,8 @@ function generateUploadPage(session, categories = []) {
 
                 <div class="form-group">
                     <label for="file">File đính kèm</label>
-                    <input type="file" id="file" name="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar">
-                    <small>Hỗ trợ: PDF, DOC, DOCX, TXT, hình ảnh, file nén (tối đa 50MB)</small>
+                    <input type="file" id="file" name="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mp3,.wav,.webm,.ogg,.zip,.rar">
+                    <small>Hỗ trợ: PDF, DOC, DOCX, Excel (XLS/XLSX), TXT, hình ảnh, video, audio, file nén (tối đa 500MB)</small>
                 </div>
 
                 <div class="form-actions">
@@ -587,6 +585,9 @@ function generateAdminPage(announcement, session, categories = []) {
         <main class="normal-main-content">
             <div class="page-header">
                 <h2>Quản trị hệ thống</h2>
+                <div class="page-actions">
+                    <a href="/admin/deleted" class="btn btn-info">Quản lý file đã xóa</a>
+                </div>
             </div>
 
             <div class="admin-section">
@@ -970,6 +971,276 @@ function generateNoPermissionPage(
   `;
 }
 
+// Post Detail View Template
+function generatePostDetailPage(post, session, categories = []) {
+  // Determine file preview based on file extension
+  const getFilePreview = (fileName, postId) => {
+    if (!fileName) return "";
+
+    const ext = fileName.toLowerCase().split(".").pop();
+    const fileUrl = `/download/${postId}`;
+
+    switch (ext) {
+      case "pdf":
+        return `
+          <div class="file-preview">
+            <iframe src="${fileUrl}" width="100%" height="600px" frameborder="0">
+              <p>Trình duyệt không hỗ trợ xem PDF. <a href="${fileUrl}">Tải về</a></p>
+            </iframe>
+          </div>
+        `;
+
+      case "jpg":
+      case "jpeg":
+      case "png":
+      case "gif":
+      case "webp":
+        return `
+          <div class="file-preview">
+            <img src="${fileUrl}" alt="${fileName}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          </div>
+        `;
+
+      case "mp4":
+      case "webm":
+      case "ogg":
+        return `
+          <div class="file-preview">
+            <video controls width="100%" style="border-radius: 8px; max-height: 600px; max-width: 400px">
+              <source src="${fileUrl}" type="video/${ext}">
+              Trình duyệt không hỗ trợ video này. <a href="${fileUrl}">Tải về</a>
+            </video>
+          </div>
+        `;
+
+      case "mp3":
+      case "wav":
+      case "ogg":
+        return `
+          <div class="file-preview">
+            <audio controls style="width: 100%;">
+              <source src="${fileUrl}" type="audio/${ext}">
+              Trình duyệt không hỗ trợ audio này. <a href="${fileUrl}">Tải về</a>
+            </audio>
+          </div>
+        `;
+
+      case "xlsx":
+      case "xls":
+        return `
+           <div class="file-preview">
+             <div class="excel-preview">
+               <div class="preview-header">
+                 <span class="file-icon">📊</span>
+                 <span class="file-name">${fileName}</span>
+                 <div class="preview-actions">
+                   <a href="${fileUrl}?download=true" class="btn btn-sm btn-download">Tải về</a>
+                 </div>
+               </div>
+               <div id="excel-container-${postId}" class="excel-container">
+                 <div class="loading-message">Đang tải file Excel...</div>
+               </div>
+               <script>
+                 fetch('/preview/excel/${postId}')
+                   .then(response => response.json())
+                   .then(data => {
+                     const container = document.getElementById('excel-container-${postId}');
+                     let html = '<div class="excel-sheets">';
+
+                     if (data.sheets.length > 1) {
+                       html += '<div class="sheet-tabs">';
+                       data.sheets.forEach((sheetName, index) => {
+                         html += '<button class="sheet-tab' + (index === 0 ? ' active' : '') + '" onclick="showSheet_${postId}(\\''+sheetName+'\\', this)">' + sheetName + '</button>';
+                       });
+                       html += '</div>';
+                     }
+
+                     data.sheets.forEach((sheetName, index) => {
+                       html += '<div class="sheet-content' + (index === 0 ? ' active' : '') + '" id="sheet_${postId}_' + sheetName + '">';
+                       html += data.data[sheetName];
+                       html += '</div>';
+                     });
+
+                     html += '</div>';
+                     container.innerHTML = html;
+                   })
+                   .catch(error => {
+                     document.getElementById('excel-container-${postId}').innerHTML =
+                       '<div class="error-message">Không thể tải file Excel. <a href="${fileUrl}?download=true">Tải về</a></div>';
+                   });
+
+                 window.showSheet_${postId} = function(sheetName, button) {
+                   document.querySelectorAll('#excel-container-${postId} .sheet-content').forEach(el => el.classList.remove('active'));
+                   document.querySelectorAll('#excel-container-${postId} .sheet-tab').forEach(el => el.classList.remove('active'));
+                   document.getElementById('sheet_${postId}_' + sheetName).classList.add('active');
+                   button.classList.add('active');
+                 }
+               </script>
+             </div>
+           </div>
+         `;
+
+      case "docx":
+      case "doc":
+        return `
+           <div class="file-preview">
+             <div class="word-preview">
+               <div class="preview-header">
+                 <span class="file-icon">📄</span>
+                 <span class="file-name">${fileName}</span>
+                 <div class="preview-actions">
+                   <a href="${fileUrl}?download=true" class="btn btn-sm btn-download">Tải về</a>
+                 </div>
+               </div>
+               <div id="word-container-${postId}" class="word-container">
+                 <div class="loading-message">Đang tải file Word...</div>
+               </div>
+               <script>
+                 fetch('/preview/word/${postId}')
+                   .then(response => response.json())
+                   .then(data => {
+                     const container = document.getElementById('word-container-${postId}');
+                     container.innerHTML = '<div class="word-content">' + data.html + '</div>';
+                   })
+                   .catch(error => {
+                     document.getElementById('word-container-${postId}').innerHTML =
+                       '<div class="error-message">Không thể tải file Word. <a href="${fileUrl}?download=true">Tải về</a></div>';
+                   });
+               </script>
+             </div>
+           </div>
+         `;
+
+      default:
+        return `
+          <div class="file-preview">
+            <div class="file-download-only">
+              <div class="file-icon-large">📎</div>
+              <div class="file-info">
+                <div class="file-name">${fileName}</div>
+                <div class="file-note">Loại file này không hỗ trợ xem trực tiếp</div>
+              </div>
+              <a href="${fileUrl}?download=true" class="btn btn-primary">Tải về để xem</a>
+            </div>
+          </div>
+        `;
+    }
+  };
+
+  return `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${post.title} - BIDV Intranet Portal</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    ${generateNavigation(session, "home", categories)}
+
+    <div class="container">
+        <main class="post-detail-main">
+            <div class="post-detail-header">
+                <div class="breadcrumb">
+                    <a href="/">Trang chủ</a> <span>›</span> <span>${
+                      post.title
+                    }</span>
+                </div>
+
+                <div class="post-detail-meta">
+                    <div class="post-category">
+                        <span class="category-icon">${
+                          post.category_icon || "📋"
+                        }</span>
+                        <span class="category-name">${
+                          post.category_name || "Không xác định"
+                        }</span>
+                    </div>
+                    <div class="post-stats">
+                        <span class="post-author">📝 ${
+                          post.author_name || "Không xác định"
+                        }</span>
+                        <span class="post-date">📅 ${moment(
+                          post.created_at
+                        ).format("DD/MM/YYYY HH:mm")}</span>
+                        <span class="post-views">👁 ${
+                          post.view_count || 0
+                        } lượt xem</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="post-detail-content">
+                <h1 class="post-title">${post.title}</h1>
+
+                ${
+                  post.content
+                    ? `
+                <div class="post-description">
+                    <h3>Mô tả:</h3>
+                    <div class="post-content">${post.content.replace(
+                      /\n/g,
+                      "<br>"
+                    )}</div>
+                </div>
+                `
+                    : ""
+                }
+
+                ${
+                  post.file_name
+                    ? `
+                <div class="post-file-section">
+                    <h3>File đính kèm:</h3>
+                    <div class="file-info-header">
+                        <span class="file-icon">📎</span>
+                        <span class="file-name">${post.file_name}</span>
+                        <a href="/download/${
+                          post.id
+                        }?download=true" class="btn btn-sm btn-download">Tải về</a>
+                    </div>
+
+                    ${getFilePreview(post.file_name, post.id)}
+                </div>
+                `
+                    : ""
+                }
+
+                <div class="post-actions">
+                    ${
+                      session.userRole === "admin" ||
+                      post.user_id === session.userId
+                        ? `<a href="/edit/${post.id}" class="btn btn-secondary">Chỉnh sửa</a>`
+                        : ""
+                    }
+                    <a href="/history/${
+                      post.id
+                    }" class="btn btn-info">Lịch sử</a>
+                    ${
+                      session.userRole === "admin"
+                        ? `<button onclick="deletePost(${post.id})" class="btn btn-danger">Xóa</button>`
+                        : ""
+                    }
+                    <a href="/" class="btn btn-primary">Quay lại</a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function deletePost(id) {
+            if (confirm('Bạn có chắc muốn xóa tài liệu này?')) {
+                fetch('/delete/' + id, { method: 'POST' })
+                    .then(() => window.location.href = '/');
+            }
+        }
+    </script>
+</body>
+</html>
+  `;
+}
+
 module.exports = {
   generateLoginPage,
   generateHomePage,
@@ -979,4 +1250,5 @@ module.exports = {
   generateEditPage,
   generateHistoryPage,
   generateNoPermissionPage,
+  generatePostDetailPage,
 };

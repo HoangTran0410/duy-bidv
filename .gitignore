@@ -1,1 +1,7 @@
 node_modules
+sessions.db
+
+uploads/*
+!uploads/README.md
+deleted/*
+!deleted/README.md
