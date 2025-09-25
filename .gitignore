@@ -1,7 +1,7 @@
 node_modules
 db
 !db/README.md
-uploads/*
+uploads
 !uploads/README.md
-deleted/*
+deleted
 !deleted/README.md

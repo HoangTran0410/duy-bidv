@@ -109,9 +109,54 @@ function getExchangeRates() {
 }
 
 // Generate exchange rates widget
-function generateExchangeRatesWidget() {
-  const rates = getExchangeRates();
-  const currentDate = moment().format("DD/MM/YYYY");
+function generateExchangeRatesWidget(exchangeRates = []) {
+  // If no database rates, fall back to hardcoded rates
+  if (exchangeRates.length === 0) {
+    exchangeRates = getExchangeRates().map((rate) => ({
+      currency_code: rate.code,
+      cash_buy_rate: parseFloat(rate.buy.replace(/,/g, "")),
+      transfer_buy_rate: parseFloat(rate.transfer.replace(/,/g, "")),
+      sell_rate: parseFloat(rate.sell.replace(/,/g, "")),
+      notification_date: moment().format("YYYY-MM-DD"),
+      notification_number: 1,
+    }));
+  }
+
+  const currentDate =
+    exchangeRates.length > 0 && exchangeRates[0].notification_date
+      ? moment(exchangeRates[0].notification_date).format("DD/MM/YYYY")
+      : moment().format("DD/MM/YYYY");
+
+  const notificationNumber =
+    exchangeRates.length > 0 && exchangeRates[0].notification_number
+      ? exchangeRates[0].notification_number
+      : 1;
+
+  // Currency flag mapping
+  const getCurrencyFlag = (code) => {
+    const flags = {
+      USD: "🇺🇸",
+      EUR: "🇪🇺",
+      GBP: "🇬🇧",
+      JPY: "🇯🇵",
+      HKD: "🇭🇰",
+      CHF: "🇨🇭",
+      THB: "🇹🇭",
+      AUD: "🇦🇺",
+      CAD: "🇨🇦",
+      SGD: "🇸🇬",
+      CNY: "🇨🇳",
+      KRW: "🇰🇷",
+      LAK: "🇱🇦",
+      DKK: "🇩🇰",
+      NOK: "🇳🇴",
+      SEK: "🇸🇪",
+      MYR: "🇲🇾",
+      TWD: "🇹🇼",
+      NZD: "🇳🇿",
+    };
+    return flags[code] || "💱";
+  };
 
   return `
     <div class="exchange-rates">
@@ -119,7 +164,7 @@ function generateExchangeRatesWidget() {
         BẢNG TỶ GIÁ NGOẠI TỆ
       </div>
       <div class="rates-date">
-        Thông báo lần 1 - ngày: ${currentDate}
+        Thông báo lần ${notificationNumber} - ngày: ${currentDate}
       </div>
       <table class="rates-table">
         <thead>
@@ -131,17 +176,29 @@ function generateExchangeRatesWidget() {
           </tr>
         </thead>
         <tbody>
-          ${rates
+          ${exchangeRates
             .map(
               (rate) => `
             <tr>
               <td>
-                <span class="currency-flag">${rate.flag}</span>
-                <span class="currency-code">${rate.code}</span>
+                <span class="currency-flag">${getCurrencyFlag(
+                  rate.currency_code
+                )}</span>
+                <span class="currency-code">${rate.currency_code}</span>
               </td>
-              <td class="rate-value">${rate.buy}</td>
-              <td class="rate-value">${rate.sell}</td>
-              <td class="rate-value">${rate.transfer}</td>
+              <td class="rate-value">${
+                rate.cash_buy_rate
+                  ? rate.cash_buy_rate.toLocaleString("vi-VN")
+                  : "-"
+              }</td>
+              <td class="rate-value">${
+                rate.transfer_buy_rate
+                  ? rate.transfer_buy_rate.toLocaleString("vi-VN")
+                  : "-"
+              }</td>
+              <td class="rate-value">${
+                rate.sell_rate ? rate.sell_rate.toLocaleString("vi-VN") : "-"
+              }</td>
             </tr>
           `
             )
@@ -494,7 +551,8 @@ function generateHomePage(
   totalPosts = 0,
   postsPerPage = 3,
   searchTerm = null,
-  banners = []
+  banners = [],
+  exchangeRates = []
 ) {
   const totalPages = Math.ceil(totalPosts / postsPerPage);
   const displayPosts = posts; // Posts already paginated from server
@@ -763,7 +821,7 @@ function generateHomePage(
             </div>
 
             <div class="content-right">
-                ${generateExchangeRatesWidget()}
+                ${generateExchangeRatesWidget(exchangeRates)}
             </div>
         </main>
     </div>
@@ -1470,6 +1528,7 @@ function generateAdminTabPage(
     { key: "users", label: "👥 Người dùng", url: "/admin/users" },
     { key: "announcement", label: "📢 Thông báo", url: "/admin/announcement" },
     { key: "banners", label: "🖼️ Banners", url: "/admin/banners" },
+    { key: "exchange-rates", label: "💱 Tỷ giá", url: "/admin/exchange-rates" },
     { key: "deleted", label: "🗑️ File đã xóa", url: "/admin/deleted" },
   ];
 
@@ -1508,7 +1567,7 @@ function generateAdminTabPage(
 
                 <!-- Tab Content -->
                 <div class="tab-content active">
-                    ${tabContent}
+                    ${tabContent || "Vui lòng chọn tab để xem nội dung."}
                 </div>
             </div>
         </main>
@@ -2044,6 +2103,356 @@ function generateAdminBannersPage(banners, session, categories = []) {
   );
 }
 
+// Admin Exchange Rates Page Template
+function generateAdminExchangeRatesPage(
+  exchangeRates,
+  session,
+  categories = []
+) {
+  const tabContent = `
+    <div class="tab-header">
+        <h3>Quản lý tỷ giá ngoại tệ</h3>
+        <button onclick="showUploadForm()" class="btn btn-primary">📤 Upload Excel</button>
+        <button onclick="clearAllRates()" class="btn btn-danger">🗑️ Xóa tất cả</button>
+    </div>
+
+    <!-- Upload Form (Hidden by default) -->
+    <div id="uploadForm" class="upload-form" style="display: none;">
+        <h4>Upload file Excel tỷ giá</h4>
+        <form action="/admin/exchange-rates/upload" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="excel_file">File Excel *</label>
+                <input type="file" id="excel_file" name="excel_file" accept=".xlsx,.xls" required>
+                <small>Chỉ chấp nhận file Excel (.xlsx, .xls)</small>
+            </div>
+            <div class="form-group">
+                <label for="notification_date">Ngày thông báo</label>
+                <input type="date" id="notification_date" name="notification_date" value="${moment().format(
+                  "YYYY-MM-DD"
+                )}">
+            </div>
+            <div class="form-group">
+                <label for="notification_number">Lần thông báo</label>
+                <input type="number" id="notification_number" name="notification_number" value="1" min="1">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">📤 Upload và cập nhật</button>
+                <button type="button" onclick="hideUploadForm()" class="btn btn-secondary">❌ Hủy</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Exchange Rates Table -->
+    <div class="exchange-rates-table">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Mã ngoại tệ</th>
+                    <th>Mua tiền mặt</th>
+                    <th>Mua chuyển khoản</th>
+                    <th>Bán</th>
+                    <th>Ngày thông báo</th>
+                    <th>Lần thông báo</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${exchangeRates
+                  .map(
+                    (rate, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td><strong>${rate.currency_code}</strong></td>
+                    <td>${
+                      rate.cash_buy_rate
+                        ? rate.cash_buy_rate.toLocaleString("vi-VN")
+                        : "-"
+                    }</td>
+                    <td>${
+                      rate.transfer_buy_rate
+                        ? rate.transfer_buy_rate.toLocaleString("vi-VN")
+                        : "-"
+                    }</td>
+                    <td>${
+                      rate.sell_rate
+                        ? rate.sell_rate.toLocaleString("vi-VN")
+                        : "-"
+                    }</td>
+                    <td>${
+                      rate.notification_date
+                        ? moment(rate.notification_date).format("DD/MM/YYYY")
+                        : "-"
+                    }</td>
+                    <td>${rate.notification_number || 1}</td>
+                    <td>
+                        <span class="status-badge ${
+                          rate.is_active ? "active" : "inactive"
+                        }">
+                            ${rate.is_active ? "Hoạt động" : "Tạm dừng"}
+                        </span>
+                    </td>
+                    <td>
+                        <button onclick="editRate(${
+                          rate.id
+                        })" class="btn btn-sm btn-secondary">✏️ Sửa</button>
+                        <button onclick="toggleRate(${
+                          rate.id
+                        })" class="btn btn-sm ${
+                      rate.is_active ? "btn-warning" : "btn-success"
+                    }">
+                            ${rate.is_active ? "⏸️ Tắt" : "▶️ Bật"}
+                        </button>
+                        <button onclick="deleteRate(${
+                          rate.id
+                        })" class="btn btn-sm btn-danger">🗑️ Xóa</button>
+                    </td>
+                </tr>
+                `
+                  )
+                  .join("")}
+            </tbody>
+        </table>
+
+        ${
+          exchangeRates.length === 0
+            ? '<p style="text-align: center; color: #666; margin-top: 40px;">Chưa có dữ liệu tỷ giá nào. Vui lòng upload file Excel.</p>'
+            : ""
+        }
+    </div>
+
+    <!-- Edit Exchange Rate Modal -->
+    <div id="editRateModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Chỉnh sửa tỷ giá</h4>
+                <button onclick="closeEditRateModal()" class="modal-close">&times;</button>
+            </div>
+            <form id="editRateForm" method="POST">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_currency_code">Mã ngoại tệ *</label>
+                        <input type="text" id="edit_currency_code" name="currency_code" required readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_notification_date">Ngày thông báo</label>
+                        <input type="date" id="edit_notification_date" name="notification_date">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_cash_buy_rate">Mua tiền mặt</label>
+                        <input type="number" id="edit_cash_buy_rate" name="cash_buy_rate" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_transfer_buy_rate">Mua chuyển khoản</label>
+                        <input type="number" id="edit_transfer_buy_rate" name="transfer_buy_rate" step="0.01" min="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_sell_rate">Bán</label>
+                        <input type="number" id="edit_sell_rate" name="sell_rate" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_notification_number">Lần thông báo</label>
+                        <input type="number" id="edit_notification_number" name="notification_number" min="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="edit_is_active" name="is_active" value="1">
+                        Tỷ giá đang hoạt động
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">💾 Lưu thay đổi</button>
+                    <button type="button" onclick="closeEditRateModal()" class="btn btn-secondary">❌ Hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+  `;
+
+  const scripts = `
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 0;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .modal-header {
+            background: var(--bidv-green);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h4 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-close:hover {
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+        }
+        #editRateForm {
+            padding: 20px;
+        }
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group input[type="date"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .form-group input[readonly] {
+            background-color: #f5f5f5;
+            color: #666;
+        }
+        .form-actions {
+            margin-top: 20px;
+            text-align: right;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background: var(--bidv-green);
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+    <script>
+        function showUploadForm() {
+            document.getElementById('uploadForm').style.display = 'block';
+        }
+
+        function hideUploadForm() {
+            document.getElementById('uploadForm').style.display = 'none';
+        }
+
+        function toggleRate(rateId) {
+            if (confirm('Bạn có chắc muốn thay đổi trạng thái tỷ giá này?')) {
+                fetch('/admin/exchange-rates/toggle/' + rateId, { method: 'POST' })
+                    .then(() => location.reload());
+            }
+        }
+
+        function deleteRate(rateId) {
+            if (confirm('Bạn có chắc muốn xóa tỷ giá này?')) {
+                fetch('/admin/exchange-rates/delete/' + rateId, { method: 'POST' })
+                    .then(() => location.reload());
+            }
+        }
+
+        function clearAllRates() {
+            if (confirm('Bạn có chắc muốn xóa TẤT CẢ tỷ giá? Hành động này không thể hoàn tác!')) {
+                fetch('/admin/exchange-rates/clear', { method: 'POST' })
+                    .then(() => location.reload());
+            }
+        }
+
+        function editRate(rateId) {
+            // Find rate data
+            const rates = ${JSON.stringify(exchangeRates)};
+            const rate = rates.find(r => r.id == rateId);
+
+            if (rate) {
+                document.getElementById('edit_currency_code').value = rate.currency_code;
+                document.getElementById('edit_cash_buy_rate').value = rate.cash_buy_rate || '';
+                document.getElementById('edit_transfer_buy_rate').value = rate.transfer_buy_rate || '';
+                document.getElementById('edit_sell_rate').value = rate.sell_rate || '';
+                document.getElementById('edit_notification_date').value = rate.notification_date || '';
+                document.getElementById('edit_notification_number').value = rate.notification_number || 1;
+                document.getElementById('edit_is_active').checked = rate.is_active == 1;
+
+                document.getElementById('editRateForm').action = '/admin/exchange-rates/edit/' + rateId;
+                document.getElementById('editRateModal').style.display = 'block';
+            }
+        }
+
+        function closeEditRateModal() {
+            document.getElementById('editRateModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editRateModal');
+            if (event.target == modal) {
+                closeEditRateModal();
+            }
+        }
+    </script>
+  `;
+
+  return generateAdminTabPage(
+    "Quản lý tỷ giá ngoại tệ",
+    "exchange-rates",
+    tabContent,
+    session,
+    categories,
+    scripts
+  );
+}
+
 module.exports = {
   generateLoginPage,
   generateHomePage,
@@ -2051,9 +2460,11 @@ module.exports = {
   generateAdminUsersPage,
   generateAdminAnnouncementPage,
   generateAdminBannersPage,
+  generateAdminExchangeRatesPage,
   generateAdminDeletedPage,
   generateEditPage,
   generateHistoryPage,
   generateNoPermissionPage,
   generatePostDetailPage,
+  generateAdminTabPage,
 };

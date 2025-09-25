@@ -19,7 +19,9 @@ const {
   generatePostDetailPage,
   generateAdminAnnouncementPage,
   generateAdminBannersPage,
+  generateAdminExchangeRatesPage,
   generateAdminDeletedPage,
+  generateAdminTabPage,
 } = require("./templates");
 
 // Helper function to load files for a post
@@ -264,6 +266,20 @@ db.serialize(() => {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+  // Table cho exchange rates (tỷ giá ngoại tệ)
+  db.run(`CREATE TABLE IF NOT EXISTS exchange_rates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        currency_code TEXT NOT NULL,
+        cash_buy_rate REAL,
+        transfer_buy_rate REAL,
+        sell_rate REAL,
+        notification_date DATE,
+        notification_number INTEGER DEFAULT 1,
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
   // Tạo admin mặc định
   const adminPassword = bcrypt.hashSync("admin123", 10);
   db.run(
@@ -346,6 +362,92 @@ function getCategories(callback) {
     }
     callback(null, categories || []);
   });
+}
+
+// Helper function to parse exchange rates from Excel data
+function parseExchangeRatesFromExcel(
+  data,
+  notificationDate,
+  notificationNumber
+) {
+  const exchangeRates = [];
+
+  // Skip header rows and find the data table
+  let dataStartRow = -1;
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    if (row && row.length > 0) {
+      // Look for row that starts with "STT" or contains "Đồng tiền"
+      const firstCell = String(row[0] || "").toLowerCase();
+      if (
+        firstCell.includes("stt") ||
+        firstCell.includes("đồng tiền") ||
+        firstCell.includes("currency")
+      ) {
+        dataStartRow = i;
+        break;
+      }
+    }
+  }
+
+  if (dataStartRow === -1) {
+    console.log("Could not find data table header");
+    return exchangeRates;
+  }
+
+  // Parse data rows
+  for (let i = dataStartRow + 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row || row.length < 3) continue;
+
+    const stt = row[0];
+    const currency = row[2]; // Đồng tiền column
+    const cashBuy = row[3]; // Tỷ giá mua tiền mặt
+    const transferBuy = row[4]; // Tỷ giá mua chuyển khoản
+    const sell = row[5]; // Tỷ giá bán
+
+    // Skip if no currency code
+    if (!currency || String(currency).trim() === "") continue;
+
+    // Extract currency code
+    const currencyStr = String(currency).trim();
+    let currencyCode = "";
+
+    // Extract currency code from the string
+    const match = currencyStr.match(/([A-Z]{3})/);
+    if (match) {
+      currencyCode = match[1];
+    } else {
+      continue; // Skip if we can't identify the currency
+    }
+
+    // Parse numeric values
+    const parseRate = (value) => {
+      if (!value || value === "" || value === "-") return null;
+      const str = String(value).replace(/[,\s]/g, "").replace(/\./g, "");
+      const num = parseFloat(str);
+      return isNaN(num) ? null : num;
+    };
+
+    const cashBuyRate = parseRate(cashBuy);
+    const transferBuyRate = parseRate(transferBuy);
+    const sellRate = parseRate(sell);
+
+    // Only add if we have at least one valid rate
+    if (cashBuyRate || transferBuyRate || sellRate) {
+      exchangeRates.push({
+        currency_code: currencyCode,
+        cash_buy_rate: cashBuyRate,
+        transfer_buy_rate: transferBuyRate,
+        sell_rate: sellRate,
+        notification_date: notificationDate,
+        notification_number: parseInt(notificationNumber) || 1,
+      });
+    }
+  }
+
+  console.log(`Parsed ${exchangeRates.length} exchange rates from Excel`);
+  return exchangeRates;
 }
 
 // Helper function to render markdown to HTML
@@ -519,88 +621,103 @@ app.get("/", requireAuth, (req, res) => {
           // Lấy banners đang hoạt động
           db.all(
             `SELECT * FROM banners
-             WHERE is_active = 1
-             AND (start_date IS NULL OR datetime('now') >= datetime(start_date))
-             AND (expired_date IS NULL OR datetime('now') <= datetime(expired_date))
-             ORDER BY display_order ASC, created_at DESC`,
+                 WHERE is_active = 1
+                 AND (start_date IS NULL OR datetime('now') >= datetime(start_date))
+                 AND (expired_date IS NULL OR datetime('now') <= datetime(expired_date))
+                 ORDER BY display_order ASC, created_at DESC`,
             (err, banners) => {
               if (err) {
                 console.error(err);
                 banners = [];
               }
 
-              // Pagination settings
-              const postsPerPage = 5;
-              const offset = (currentPage - 1) * postsPerPage;
+              // Lấy tỷ giá ngoại tệ từ database
+              db.all(
+                `SELECT * FROM exchange_rates
+                     WHERE is_active = 1
+                     ORDER BY currency_code ASC`,
+                (err, exchangeRates) => {
+                  if (err) {
+                    console.error(err);
+                    exchangeRates = [];
+                  }
 
-              // Tạo count query để đếm tổng số posts
-              let countQuery = `SELECT COUNT(*) as total FROM posts p`;
-              let countParams = [];
+                  // Pagination settings
+                  const postsPerPage = 5;
+                  const offset = (currentPage - 1) * postsPerPage;
 
-              if (selectedCategory) {
-                countQuery += " WHERE p.category_id = ?";
-                countParams.push(selectedCategory);
-              }
+                  // Tạo count query để đếm tổng số posts
+                  let countQuery = `SELECT COUNT(*) as total FROM posts p`;
+                  let countParams = [];
 
-              // Đếm tổng số posts trước
-              db.get(countQuery, countParams, (err, countResult) => {
-                if (err) {
-                  console.error(err);
-                  return res.status(500).send("Lỗi database");
-                }
+                  if (selectedCategory) {
+                    countQuery += " WHERE p.category_id = ?";
+                    countParams.push(selectedCategory);
+                  }
 
-                const totalPosts = countResult.total;
+                  // Đếm tổng số posts trước
+                  db.get(countQuery, countParams, (err, countResult) => {
+                    if (err) {
+                      console.error(err);
+                      return res.status(500).send("Lỗi database");
+                    }
 
-                // Tạo query cho posts với filter category và pagination
-                let postsQuery = `
+                    const totalPosts = countResult.total;
+
+                    // Tạo query cho posts với filter category và pagination
+                    let postsQuery = `
                   SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
                          c.name as category_name, c.icon as category_icon
                   FROM posts p
                   LEFT JOIN users u ON p.user_id = u.id
                   LEFT JOIN categories c ON p.category_id = c.id
                 `;
-                let queryParams = [];
+                    let queryParams = [];
 
-                if (selectedCategory) {
-                  postsQuery += " WHERE p.category_id = ?";
-                  queryParams.push(selectedCategory);
-                }
+                    if (selectedCategory) {
+                      postsQuery += " WHERE p.category_id = ?";
+                      queryParams.push(selectedCategory);
+                    }
 
-                postsQuery += " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
-                queryParams.push(postsPerPage, offset);
+                    postsQuery +=
+                      " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
+                    queryParams.push(postsPerPage, offset);
 
-                // Lấy danh sách posts cho page hiện tại
-                db.all(postsQuery, queryParams, (err, posts) => {
-                  if (err) {
-                    console.error(err);
-                    return res.status(500).send("Lỗi database");
-                  }
+                    // Lấy danh sách posts cho page hiện tại
+                    db.all(postsQuery, queryParams, (err, posts) => {
+                      if (err) {
+                        console.error(err);
+                        return res.status(500).send("Lỗi database");
+                      }
 
-                  // Format thời gian và render markdown
-                  posts.forEach((post) => {
-                    post.formatted_date = moment(post.created_at).format(
-                      "DD/MM/YYYY HH:mm"
-                    );
-                    // Remove file_size_mb since it's no longer in posts table
-                    post.content_html = renderMarkdown(post.content);
+                      // Format thời gian và render markdown
+                      posts.forEach((post) => {
+                        post.formatted_date = moment(post.created_at).format(
+                          "DD/MM/YYYY HH:mm"
+                        );
+                        // Remove file_size_mb since it's no longer in posts table
+                        post.content_html = renderMarkdown(post.content);
+                      });
+
+                      res.send(
+                        generateHomePage(
+                          posts,
+                          announcement ? announcement.value : "",
+                          req.session,
+                          categories,
+                          currentPage,
+                          selectedCategory,
+                          totalPosts,
+                          postsPerPage,
+                          null, // searchTerm
+                          banners,
+                          exchangeRates
+                        )
+                      );
+                    });
                   });
-
-                  res.send(
-                    generateHomePage(
-                      posts,
-                      announcement ? announcement.value : "",
-                      req.session,
-                      categories,
-                      currentPage,
-                      selectedCategory,
-                      totalPosts,
-                      postsPerPage,
-                      null, // searchTerm
-                      banners
-                    )
-                  );
-                });
-              });
+                }
+              );
             }
           );
         }
@@ -705,9 +822,17 @@ app.post("/upload", requireAuth, upload.array("files", 10), (req, res) => {
   );
 });
 
-// Trang admin chính - redirect to users tab
+// Trang admin chính - hiển thị tabs
 app.get("/admin", requireAdmin, (req, res) => {
-  res.redirect("/admin/users");
+  const html = generateAdminTabPage(
+    "Quản trị hệ thống",
+    "",
+    "",
+    req.session,
+    [],
+    ""
+  );
+  res.send(html);
 });
 
 // Admin Users Tab
@@ -818,6 +943,30 @@ app.get("/admin/banners", requireAdmin, (req, res) => {
           categories = [];
         }
         res.send(generateAdminBannersPage(banners, req.session, categories));
+      });
+    }
+  );
+});
+
+// Admin Exchange Rates Tab
+app.get("/admin/exchange-rates", requireAdmin, (req, res) => {
+  db.all(
+    "SELECT * FROM exchange_rates ORDER BY currency_code ASC, created_at DESC",
+    (err, exchangeRates) => {
+      if (err) {
+        console.error(err);
+        exchangeRates = [];
+      }
+
+      // Get categories for navigation
+      getCategories((err, categories) => {
+        if (err) {
+          console.error(err);
+          categories = [];
+        }
+        res.send(
+          generateAdminExchangeRatesPage(exchangeRates, req.session, categories)
+        );
       });
     }
   );
@@ -989,6 +1138,179 @@ app.post("/admin/banners/delete/:id", requireAdmin, (req, res) => {
   });
 });
 
+// Exchange Rates Upload
+app.post(
+  "/admin/exchange-rates/upload",
+  requireAdmin,
+  upload.single("excel_file"),
+  (req, res) => {
+    const { notification_date, notification_number } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).send("Vui lòng chọn file Excel!");
+    }
+
+    try {
+      const XLSX = require("xlsx");
+      const workbook = XLSX.readFile(file.path);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      // Parse exchange rates from Excel data
+      const exchangeRates = parseExchangeRatesFromExcel(
+        data,
+        notification_date,
+        notification_number
+      );
+
+      if (exchangeRates.length === 0) {
+        return res
+          .status(400)
+          .send("Không tìm thấy dữ liệu tỷ giá hợp lệ trong file Excel!");
+      }
+
+      // Clear existing rates and insert new ones
+      db.run("DELETE FROM exchange_rates", (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).send("Lỗi khi xóa tỷ giá cũ!");
+        }
+
+        // Insert new rates
+        const insertStmt = db.prepare(`
+           INSERT INTO exchange_rates (currency_code, cash_buy_rate, transfer_buy_rate, sell_rate, notification_date, notification_number)
+           VALUES (?, ?, ?, ?, ?, ?)
+         `);
+
+        exchangeRates.forEach((rate) => {
+          insertStmt.run([
+            rate.currency_code,
+            rate.cash_buy_rate,
+            rate.transfer_buy_rate,
+            rate.sell_rate,
+            rate.notification_date,
+            rate.notification_number,
+          ]);
+        });
+
+        insertStmt.finalize();
+
+        // Delete uploaded file
+        fs.unlinkSync(file.path);
+
+        res.redirect("/admin/exchange-rates");
+      });
+    } catch (error) {
+      console.error("Error parsing Excel file:", error);
+      res.status(500).send("Lỗi khi đọc file Excel: " + error.message);
+    }
+  }
+);
+
+// Toggle exchange rate status
+app.post("/admin/exchange-rates/toggle/:id", requireAdmin, (req, res) => {
+  const rateId = req.params.id;
+
+  db.get(
+    "SELECT is_active FROM exchange_rates WHERE id = ?",
+    [rateId],
+    (err, rate) => {
+      if (err || !rate) {
+        return res.status(404).send("Tỷ giá không tồn tại!");
+      }
+
+      const newStatus = rate.is_active ? 0 : 1;
+
+      db.run(
+        "UPDATE exchange_rates SET is_active = ? WHERE id = ?",
+        [newStatus, rateId],
+        (err) => {
+          if (err) {
+            console.error(err);
+            return res.status(500).send("Lỗi khi cập nhật trạng thái!");
+          }
+          res.redirect("/admin/exchange-rates");
+        }
+      );
+    }
+  );
+});
+
+// Delete exchange rate
+app.post("/admin/exchange-rates/delete/:id", requireAdmin, (req, res) => {
+  const rateId = req.params.id;
+
+  db.run("DELETE FROM exchange_rates WHERE id = ?", [rateId], (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send("Lỗi khi xóa tỷ giá!");
+    }
+    res.redirect("/admin/exchange-rates");
+  });
+});
+
+// Clear all exchange rates
+app.post("/admin/exchange-rates/clear", requireAdmin, (req, res) => {
+  db.run("DELETE FROM exchange_rates", (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send("Lỗi khi xóa tất cả tỷ giá!");
+    }
+    res.redirect("/admin/exchange-rates");
+  });
+});
+
+// Edit exchange rate
+app.post("/admin/exchange-rates/edit/:id", requireAdmin, (req, res) => {
+  const rateId = req.params.id;
+  const {
+    currency_code,
+    cash_buy_rate,
+    transfer_buy_rate,
+    sell_rate,
+    notification_date,
+    notification_number,
+    is_active,
+  } = req.body;
+
+  // Validate required fields
+  if (!currency_code) {
+    return res.status(400).send("Mã ngoại tệ không được để trống!");
+  }
+
+  // Convert empty strings to null for optional fields
+  const cashBuyRate = cash_buy_rate === "" ? null : parseFloat(cash_buy_rate);
+  const transferBuyRate =
+    transfer_buy_rate === "" ? null : parseFloat(transfer_buy_rate);
+  const sellRate = sell_rate === "" ? null : parseFloat(sell_rate);
+
+  db.run(
+    `UPDATE exchange_rates
+     SET currency_code = ?, cash_buy_rate = ?, transfer_buy_rate = ?, sell_rate = ?,
+         notification_date = ?, notification_number = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [
+      currency_code,
+      cashBuyRate,
+      transferBuyRate,
+      sellRate,
+      notification_date || null,
+      parseInt(notification_number) || 1,
+      is_active ? 1 : 0,
+      rateId,
+    ],
+    (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).send("Lỗi khi cập nhật tỷ giá!");
+      }
+      res.redirect("/admin/exchange-rates");
+    }
+  );
+});
+
 // Search posts
 app.get("/search", requireAuth, (req, res) => {
   const searchTerm = req.query.q || "";
@@ -1085,18 +1407,33 @@ app.get("/search", requireAuth, (req, res) => {
                 }
               });
 
-              res.send(
-                generateHomePage(
-                  posts,
-                  "", // No announcement for search results
-                  req.session,
-                  categories,
-                  currentPage,
-                  null, // No selected category
-                  totalPosts,
-                  postsPerPage,
-                  searchTerm // Pass search term
-                )
+              // Get exchange rates for search page
+              db.all(
+                `SELECT * FROM exchange_rates
+                 WHERE is_active = 1
+                 ORDER BY currency_code ASC`,
+                (err, exchangeRates) => {
+                  if (err) {
+                    console.error(err);
+                    exchangeRates = [];
+                  }
+
+                  res.send(
+                    generateHomePage(
+                      posts,
+                      "", // No announcement for search results
+                      req.session,
+                      categories,
+                      currentPage,
+                      null, // No selected category
+                      totalPosts,
+                      postsPerPage,
+                      searchTerm, // Pass search term
+                      [], // No banners for search
+                      exchangeRates
+                    )
+                  );
+                }
               );
             }
           );
