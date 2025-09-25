@@ -258,14 +258,12 @@ function generateNavigation(session, currentPage = "", categories = []) {
           </div>
         </div>
         <div class="header-right">
-          <div class="search-box">
-            <form action="/search" method="GET" style="display: flex; align-items: center; gap: 5px;">
-              <input type="text" name="q" placeholder="Tìm tài liệu, văn bản..." style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; width: 250px;" required>
-              <button type="submit" style="padding: 6px 12px; background: var(--bidv-green); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
-                🔍
-              </button>
-            </form>
-          </div>
+          <span class="user-info">
+            <span class="user-name">${session.userName}</span>
+          </span>
+          <form action="/logout" method="POST" style="display: inline;">
+            <button type="submit" class="logout-btn">Đăng xuất</button>
+          </form>
         </div>
       </div>
     </header>
@@ -293,12 +291,11 @@ function generateNavigation(session, currentPage = "", categories = []) {
           }
         </div>
         <div class="nav-right">
-          <span class="user-info">
-            <span class="user-name">${session.userName}</span>
-          </span>
-          <form action="/logout" method="POST" style="display: inline;">
-            <button type="submit" class="logout-btn">Đăng xuất</button>
-          </form>
+          <div class="nav-search-box">
+            <form action="/search" method="GET" class="search-form">
+              <input type="text" name="q" placeholder="Tìm tài liệu..." class="search-input" required>
+            </form>
+          </div>
         </div>
       </div>
     </nav>
@@ -511,7 +508,7 @@ function generateHomePage(
                     }
 
                     ${
-                      totalPosts === 0
+                      totalPosts === 0 && !searchTerm
                         ? '<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-style: italic;">Chưa có tài liệu nào được đăng.</div>'
                         : ""
                     }
