@@ -1,6 +1,6 @@
 node_modules
-sessions.db
-
+db
+!db/README.md
 uploads/*
 !uploads/README.md
 deleted/*

@@ -198,12 +198,50 @@ function generateLoginPage(error = "") {
         </form>
 
         <div class="login-footer">
-            <p>© 2024 Ngân hàng TMCP Đầu tư và Phát triển Việt Nam</p>
+            <p>© 2025 Ngân hàng TMCP Đầu tư và Phát triển Việt Nam</p>
             <p><small>Phiên bản 1.0 - Chỉ dành cho nội bộ</small></p>
         </div>
     </div>
 </body>
 </html>
+  `;
+}
+
+// Footer Component
+function generateFooter() {
+  return `
+    <footer class="bidv-footer">
+      <div class="footer-content">
+        <div class="footer-info">
+          <div class="footer-logo">
+            <div class="footer-bank-name">NGÂN HÀNG TMCP ĐẦU TƯ VÀ PHÁT TRIỂN VIỆT NAM</div>
+            <div class="footer-branch-name">CHI NHÁNH QUẬN 7 SÀI GÒN</div>
+          </div>
+          <div class="footer-description">
+            Portal nội bộ dành cho việc chia sẻ tài liệu, thông báo và thông tin quan trọng của ngân hàng.
+          </div>
+        </div>
+        <div class="footer-contact">
+          <div class="contact-item">
+            <strong>📍 Địa chỉ:</strong> Tầng 4, Tòa nhà Central Park, 208 Nguyễn Thị Thập, Quận 7, TP.HCM
+          </div>
+          <div class="contact-item">
+            <strong>📞 Điện thoại:</strong> (028) 3975 1234
+          </div>
+          <div class="contact-item">
+            <strong>✉️ Email:</strong> bidvq7@bidv.com.vn
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <div class="footer-copyright">
+          © 2025 Ngân hàng TMCP Đầu tư và Phát triển Việt Nam - Chi nhánh Quận 7 Sài Gòn
+        </div>
+        <div class="footer-time">
+          Cập nhật lần cuối: 09/2025
+        </div>
+      </div>
+    </footer>
   `;
 }
 
@@ -419,6 +457,8 @@ function generateHomePage(
         </main>
     </div>
 
+    ${generateFooter()}
+
     <script>
         function deletePost(id) {
             if (confirm('Bạn có chắc muốn xóa tài liệu này?')) {
@@ -492,6 +532,8 @@ function generateUploadPage(session, categories = []) {
             </form>
         </main>
     </div>
+
+    ${generateFooter()}
 </body>
 </html>
   `;
@@ -548,6 +590,8 @@ function generateAdminPage(announcement, session, categories = []) {
             </div>
         </main>
     </div>
+
+    ${generateFooter()}
 </body>
 </html>
   `;
@@ -689,6 +733,8 @@ function generateUsersPage(users, session, categories = []) {
             document.getElementById('addUserForm').style.display = 'none';
         }
     </script>
+
+    ${generateFooter()}
 </body>
 </html>
   `;
@@ -755,6 +801,8 @@ function generateEditPage(post, session, categories = []) {
             </form>
         </main>
     </div>
+
+    ${generateFooter()}
 </body>
 </html>
   `;
@@ -837,6 +885,8 @@ function generateHistoryPage(post, history, session, categories = []) {
             }
         </main>
     </div>
+
+    ${generateFooter()}
 </body>
 </html>
   `;
@@ -896,6 +946,8 @@ function generateNoPermissionPage(
             </div>
         </main>
     </div>
+
+    ${generateFooter()}
 </body>
 </html>
   `;
@@ -1166,6 +1218,8 @@ function generatePostDetailPage(post, session, categories = []) {
             }
         }
     </script>
+
+    ${generateFooter()}
 </body>
 </html>
   `;

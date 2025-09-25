@@ -40,10 +40,10 @@ app.use((req, res, next) => {
 app.use(
   session({
     store: new SQLiteStore({
-      db: "sessions.db",
+      db: "db/sessions.db",
       dir: "./",
     }),
-    secret: "bidv-intranet-secret-key-2024",
+    secret: "bidv-intranet-secret-key-2025",
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -117,7 +117,7 @@ const upload = multer({
 });
 
 // Khởi tạo database
-const db = new sqlite3.Database("intranet.db");
+const db = new sqlite3.Database("db/intranet.db");
 
 // Tạo tables
 db.serialize(() => {
