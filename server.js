@@ -172,8 +172,26 @@ const upload = multer({
   },
 });
 
-// Khởi tạo database
+// Khởi tạo database với optimizations
 const db = new sqlite3.Database("db/intranet.db");
+
+// Apply database optimizations immediately after opening
+db.serialize(() => {
+  // Enable WAL mode for better concurrency
+  db.run("PRAGMA journal_mode = WAL");
+
+  // Increase cache size for better performance
+  db.run("PRAGMA cache_size = -64000"); // 64MB cache
+
+  // Enable foreign key constraints
+  db.run("PRAGMA foreign_keys = ON");
+
+  // Set synchronous mode for better performance
+  db.run("PRAGMA synchronous = NORMAL");
+
+  // Set temp store to memory
+  db.run("PRAGMA temp_store = MEMORY");
+});
 
 // Tạo tables
 db.serialize(() => {
@@ -282,6 +300,79 @@ db.serialize(() => {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+  // ==============================================
+  // CREATE OPTIMIZED INDEXES
+  // ==============================================
+
+  // Users table indexes
+  db.run("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_users_can_post ON users(can_post)");
+
+  // Posts table indexes
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_posts_category_id ON posts(category_id)"
+  );
+  db.run("CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id)");
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC)"
+  );
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_posts_updated_at ON posts(updated_at DESC)"
+  );
+  db.run("CREATE INDEX IF NOT EXISTS idx_posts_type ON posts(type)");
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_posts_view_count ON posts(view_count DESC)"
+  );
+
+  // Composite indexes for common queries
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_posts_category_created ON posts(category_id, created_at DESC)"
+  );
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_posts_user_created ON posts(user_id, created_at DESC)"
+  );
+
+  // Post files table indexes
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_post_files_post_id ON post_files(post_id)"
+  );
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_post_files_order ON post_files(post_id, file_order, created_at)"
+  );
+
+  // Post history table indexes
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_post_history_post_id ON post_history(post_id)"
+  );
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_post_history_edited_at ON post_history(edited_at DESC)"
+  );
+
+  // Settings table indexes
+  db.run("CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key)");
+
+  // Banners table indexes
+  db.run("CREATE INDEX IF NOT EXISTS idx_banners_active ON banners(is_active)");
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_banners_dates ON banners(start_date, expired_date)"
+  );
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_banners_display_order ON banners(display_order ASC, created_at DESC)"
+  );
+
+  // Exchange rates table indexes
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_exchange_rates_active ON exchange_rates(is_active)"
+  );
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_exchange_rates_currency ON exchange_rates(currency_code)"
+  );
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates(notification_date)"
+  );
+
   // Tạo admin mặc định
   const adminPassword = bcrypt.hashSync("admin123", 10);
   db.run(
@@ -353,17 +444,39 @@ db.serialize(() => {
       });
     }
   );
+
+  // Analyze database for optimization
+  db.run("ANALYZE");
 });
 
-// Helper function to get categories
+// Helper function to get categories with optimized query
 function getCategories(callback) {
-  db.all("SELECT * FROM categories ORDER BY name", (err, categories) => {
-    if (err) {
-      console.error("Error fetching categories:", err);
-      return callback(err, []);
+  // Use optimized query with subquery for better performance
+  db.all(
+    `
+    SELECT
+      c.id,
+      c.name,
+      c.icon,
+      c.color,
+      c.created_at,
+      COALESCE(pc.post_count, 0) as post_count
+    FROM categories c
+    LEFT JOIN (
+      SELECT category_id, COUNT(*) as post_count
+      FROM posts
+      GROUP BY category_id
+    ) pc ON c.id = pc.category_id
+    ORDER BY c.name
+  `,
+    (err, categories) => {
+      if (err) {
+        console.error("Error fetching categories:", err);
+        return callback(err, []);
+      }
+      callback(null, categories || []);
     }
-    callback(null, categories || []);
-  });
+  );
 }
 
 // Helper function to parse exchange rates from Excel data
@@ -607,123 +720,127 @@ app.get("/", requireAuth, (req, res) => {
         return res.status(500).send("Lỗi database");
       }
 
-      // Lấy danh sách categories với số lượng posts
-      db.all(
-        `SELECT c.*, COUNT(p.id) as post_count
-         FROM categories c
-         LEFT JOIN posts p ON c.id = p.category_id
-         GROUP BY c.id
-         ORDER BY c.name`,
-        (err, categories) => {
-          if (err) {
-            console.error(err);
-            return res.status(500).send("Lỗi database");
-          }
+      // Lấy danh sách categories với số lượng posts (optimized)
+      getCategories((err, categories) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).send("Lỗi database");
+        }
 
-          // Lấy banners đang hoạt động
-          db.all(
-            `SELECT * FROM banners
+        // Lấy banners đang hoạt động (optimized)
+        db.all(
+          `SELECT * FROM banners
                  WHERE is_active = 1
-                 AND (start_date IS NULL OR datetime('now') >= datetime(start_date))
-                 AND (expired_date IS NULL OR datetime('now') <= datetime(expired_date))
+                 AND (start_date IS NULL OR start_date <= datetime('now'))
+                 AND (expired_date IS NULL OR expired_date >= datetime('now'))
                  ORDER BY display_order ASC, created_at DESC`,
-            (err, banners) => {
-              if (err) {
-                console.error(err);
-                banners = [];
-              }
+          (err, banners) => {
+            if (err) {
+              console.error(err);
+              banners = [];
+            }
 
-              // Lấy tỷ giá ngoại tệ từ database
-              db.all(
-                `SELECT * FROM exchange_rates
+            // Lấy tỷ giá ngoại tệ từ database
+            db.all(
+              `SELECT * FROM exchange_rates
                      WHERE is_active = 1
                      ORDER BY id ASC`,
-                (err, exchangeRates) => {
+              (err, exchangeRates) => {
+                if (err) {
+                  console.error(err);
+                  exchangeRates = [];
+                }
+
+                // Pagination settings
+                const postsPerPage = 5;
+                const offset = (currentPage - 1) * postsPerPage;
+
+                // Tạo count query để đếm tổng số posts
+                let countQuery = `SELECT COUNT(*) as total FROM posts p`;
+                let countParams = [];
+
+                if (selectedCategory) {
+                  countQuery += " WHERE p.category_id = ?";
+                  countParams.push(selectedCategory);
+                }
+
+                // Đếm tổng số posts trước
+                db.get(countQuery, countParams, (err, countResult) => {
                   if (err) {
                     console.error(err);
-                    exchangeRates = [];
+                    return res.status(500).send("Lỗi database");
                   }
 
-                  // Pagination settings
-                  const postsPerPage = 5;
-                  const offset = (currentPage - 1) * postsPerPage;
+                  const totalPosts = countResult.total;
 
-                  // Tạo count query để đếm tổng số posts
-                  let countQuery = `SELECT COUNT(*) as total FROM posts p`;
-                  let countParams = [];
+                  // Tạo query cho posts với filter category và pagination (optimized)
+                  let postsQuery = `
+                  SELECT
+                    p.id,
+                    p.title,
+                    p.content,
+                    p.user_id,
+                    p.category_id,
+                    p.view_count,
+                    p.created_at,
+                    p.updated_at,
+                    p.type,
+                    u.full_name as author_name,
+                    u.avatar as author_avatar,
+                    c.name as category_name,
+                    c.icon as category_icon
+                  FROM posts p
+                  LEFT JOIN users u ON p.user_id = u.id
+                  LEFT JOIN categories c ON p.category_id = c.id
+                `;
+                  let queryParams = [];
 
                   if (selectedCategory) {
-                    countQuery += " WHERE p.category_id = ?";
-                    countParams.push(selectedCategory);
+                    postsQuery += " WHERE p.category_id = ?";
+                    queryParams.push(selectedCategory);
                   }
 
-                  // Đếm tổng số posts trước
-                  db.get(countQuery, countParams, (err, countResult) => {
+                  postsQuery += " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
+                  queryParams.push(postsPerPage, offset);
+
+                  // Lấy danh sách posts cho page hiện tại
+                  db.all(postsQuery, queryParams, (err, posts) => {
                     if (err) {
                       console.error(err);
                       return res.status(500).send("Lỗi database");
                     }
 
-                    const totalPosts = countResult.total;
-
-                    // Tạo query cho posts với filter category và pagination
-                    let postsQuery = `
-                  SELECT p.*, u.full_name as author_name, u.avatar as author_avatar,
-                         c.name as category_name, c.icon as category_icon
-                  FROM posts p
-                  LEFT JOIN users u ON p.user_id = u.id
-                  LEFT JOIN categories c ON p.category_id = c.id
-                `;
-                    let queryParams = [];
-
-                    if (selectedCategory) {
-                      postsQuery += " WHERE p.category_id = ?";
-                      queryParams.push(selectedCategory);
-                    }
-
-                    postsQuery +=
-                      " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
-                    queryParams.push(postsPerPage, offset);
-
-                    // Lấy danh sách posts cho page hiện tại
-                    db.all(postsQuery, queryParams, (err, posts) => {
-                      if (err) {
-                        console.error(err);
-                        return res.status(500).send("Lỗi database");
-                      }
-
-                      // Format thời gian và render markdown
-                      posts.forEach((post) => {
-                        post.formatted_date = moment(post.created_at).format(
-                          "DD/MM/YYYY HH:mm"
-                        );
-                        // Remove file_size_mb since it's no longer in posts table
-                        post.content_html = renderMarkdown(post.content);
-                      });
-
-                      res.send(
-                        generateHomePage(
-                          posts,
-                          announcement ? announcement.value : "",
-                          req.session,
-                          categories,
-                          currentPage,
-                          selectedCategory,
-                          totalPosts,
-                          postsPerPage,
-                          null, // searchTerm
-                          banners,
-                          exchangeRates
-                        )
+                    // Format thời gian và render markdown
+                    posts.forEach((post) => {
+                      post.formatted_date = moment(post.created_at).format(
+                        "DD/MM/YYYY HH:mm"
                       );
+                      // Remove file_size_mb since it's no longer in posts table
+                      post.content_html = renderMarkdown(post.content);
                     });
+
+                    res.send(
+                      generateHomePage(
+                        posts,
+                        announcement ? announcement.value : "",
+                        req.session,
+                        categories,
+                        currentPage,
+                        selectedCategory,
+                        totalPosts,
+                        postsPerPage,
+                        null, // searchTerm
+                        banners,
+                        exchangeRates
+                      )
+                    );
                   });
-                }
-              );
-            }
-          );
-        }
-      );
+                });
+              }
+            );
+          }
+        );
+      });
     }
   );
 });
