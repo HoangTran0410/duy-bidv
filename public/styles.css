@@ -935,6 +935,7 @@ body {
 }
 
 .data-table th {
+  padding: 8px 12px;
   background: var(--bg-light);
   color: var(--text-dark);
   font-weight: 600;
@@ -2814,6 +2815,10 @@ body {
   transition: opacity 0.5s ease-in-out;
 }
 
+.carousel-slide:not(.active) {
+  pointer-events: none;
+}
+
 .carousel-slide.active {
   opacity: 1;
 }
@@ -3290,4 +3295,14 @@ body {
 .status-badge.inactive {
   background: var(--status-inactive);
   color: var(--text-danger);
+}
+
+.EasyMDEContainer:has(.editor-toolbar.fullscreen) {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  background: white;
 }

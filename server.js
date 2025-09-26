@@ -24,6 +24,8 @@ const {
   generateAdminTabPage,
 } = require("./templates");
 
+moment.locale("vi");
+
 // Helper function to load files for a post
 function loadPostFiles(postId, callback) {
   db.all(
@@ -307,7 +309,7 @@ db.serialize(() => {
       if (err) {
         console.error("Lỗi khi dọn dẹp categories trùng lặp:", err);
       } else {
-        console.log("Đã dọn dẹp categories trùng lặp.");
+        // console.log("Đã dọn dẹp categories trùng lặp.");
       }
 
       // Sau khi dọn dẹp, kiểm tra và thêm categories mặc định nếu cần
@@ -346,7 +348,7 @@ db.serialize(() => {
             );
           });
         } else {
-          console.log(`Đã có ${result.count} categories trong database.`);
+          // console.log(`Đã có ${result.count} categories trong database.`);
         }
       });
     }
@@ -411,15 +413,15 @@ function parseExchangeRatesFromExcel(
 
     // Extract currency code
     const currencyStr = String(currency).trim();
-    let currencyCode = "";
+    let currencyCode = currencyStr;
 
     // Extract currency code from the string
-    const match = currencyStr.match(/([A-Z]{3})/);
-    if (match) {
-      currencyCode = match[1];
-    } else {
-      continue; // Skip if we can't identify the currency
-    }
+    // const match = currencyStr.match(/([A-Z]{3})/);
+    // if (match) {
+    //   currencyCode = match[1];
+    // } else {
+    //   continue; // Skip if we can't identify the currency
+    // }
 
     // Parse numeric values
     const parseRate = (value) => {
@@ -635,7 +637,7 @@ app.get("/", requireAuth, (req, res) => {
               db.all(
                 `SELECT * FROM exchange_rates
                      WHERE is_active = 1
-                     ORDER BY currency_code ASC`,
+                     ORDER BY id ASC`,
                 (err, exchangeRates) => {
                   if (err) {
                     console.error(err);
@@ -951,7 +953,7 @@ app.get("/admin/banners", requireAdmin, (req, res) => {
 // Admin Exchange Rates Tab
 app.get("/admin/exchange-rates", requireAdmin, (req, res) => {
   db.all(
-    "SELECT * FROM exchange_rates ORDER BY currency_code ASC, created_at DESC",
+    "SELECT * FROM exchange_rates ORDER BY id ASC, created_at DESC",
     (err, exchangeRates) => {
       if (err) {
         console.error(err);
@@ -1411,7 +1413,7 @@ app.get("/search", requireAuth, (req, res) => {
               db.all(
                 `SELECT * FROM exchange_rates
                  WHERE is_active = 1
-                 ORDER BY currency_code ASC`,
+                 ORDER BY id ASC`,
                 (err, exchangeRates) => {
                   if (err) {
                     console.error(err);

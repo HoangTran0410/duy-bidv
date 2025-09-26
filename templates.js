@@ -251,6 +251,7 @@ function generateLoginPage(error = "") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đăng nhập - BIDV Intranet Portal</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="login-body">
@@ -576,6 +577,7 @@ function generateHomePage(
     <title>${
       searchTerm ? `Kết quả tìm kiếm: "${searchTerm}"` : "Trang chủ"
     } - BIDV Intranet Portal</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -727,9 +729,11 @@ function generateHomePage(
                                     <span class="news-views">${
                                       post.view_count || 0
                                     } Lượt xem</span>
-                                     <span class="news-date">Ngày đăng: ${moment(
+                                     <span class="news-date">${moment(
                                        post.created_at
-                                     ).format("DD/MM/YYYY")}</span>
+                                     ).fromNow()} - ${moment(
+                              post.created_at
+                            ).format("DD/MM/YYYY")}</span>
                                         ${
                                           post.category_name
                                             ? `<span class="news-category">${
@@ -839,6 +843,7 @@ function generateHomePage(
         // Banner carousel functionality
         let currentSlideIndex = 0;
         const totalSlides = ${banners.length};
+        let timeoutId = null;
 
         function showSlide(index) {
             const slides = document.querySelectorAll('.carousel-slide');
@@ -853,6 +858,16 @@ function generateHomePage(
                     indicators[index].classList.add('active');
                 }
             }
+
+            // auto next slide
+            if(totalSlides > 1) {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
+                timeoutId = setTimeout(() => {
+                    changeSlide(1);
+                }, 5000);
+            }
         }
 
         function changeSlide(direction) {
@@ -863,6 +878,7 @@ function generateHomePage(
                 currentSlideIndex = totalSlides - 1;
             }
             showSlide(currentSlideIndex);
+            lastChangeTime = Date.now();
         }
 
         function currentSlide(index) {
@@ -870,12 +886,7 @@ function generateHomePage(
             showSlide(currentSlideIndex);
         }
 
-        // Auto-advance carousel every 5 seconds
-        if (totalSlides > 1) {
-            setInterval(() => {
-                changeSlide(1);
-            }, 5000);
-        }
+        showSlide(currentSlideIndex);
     </script>
 </body>
 </html>
@@ -891,6 +902,7 @@ function generateUploadPage(session, categories = []) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đăng tài liệu - BIDV Intranet Portal</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/styles.css">${generateMarkdownEditorIncludes()}
 </head>
 <body>
@@ -1004,6 +1016,7 @@ function generateEditPage(post, session, categories = []) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chỉnh sửa tài liệu - BIDV Intranet Portal</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/styles.css">${generateMarkdownEditorIncludes()}
 </head>
 <body>
@@ -1188,6 +1201,7 @@ function generateHistoryPage(post, history, session, categories = []) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lịch sử chỉnh sửa - BIDV Intranet Portal</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -1277,6 +1291,7 @@ function generateNoPermissionPage(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Không có quyền - BIDV Intranet Portal</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -1404,6 +1419,7 @@ function generatePostDetailPage(post, session, categories = []) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${post.title} - BIDV Intranet Portal</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -1549,6 +1565,7 @@ function generateAdminTabPage(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title} - BIDV Intranet Portal</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
